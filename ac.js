@@ -32,7 +32,7 @@ class Mediator {
     receivePacketFromPort(packet, srcPort) {
         if (packet.message === "mediator_heartbeat") {
             // create new packet to send back
-            srcPort.sendNewResponsePacket(packet, "mediator_heartbeat_ack", packet.data);
+            srcPort.sendResponsePacket(packet, "mediator_heartbeat_ack", packet.data);
 
         } else if (packet.message === "mediation_request") {
             //first check if there is an existing mediation
@@ -94,7 +94,6 @@ class ActiveClusterPod extends NetworkDevice {
         this.array_states = {};
         this.stetched = false;
         this.failoverPreference = null;
-        this.arrays = {};
     }
 
     preElect() {
@@ -116,11 +115,36 @@ class ActiveClusterPod extends NetworkDevice {
         }
     }
 
-    ac_write(packet, srcPort, faConroller) {
-        let acmessage = new ACMessage(this);
-        acmessage.srcPort = srcPort;
-        acmessage.original_packet = packet;
-        faController.acSendData(this, "ac_write", acmessage);
+    isFowarding(faController) {
+        let array = faController.fa;
+        let otherArray = this.getOtherArray(array.name);
+        
+
+        if (this.array_states[array.name].state === "synced" && this.array_states[otherArray.name].state === "synced") {
+            return true;
+        }
+        return false;
+    }
+    
+    isWriting(faController) {
+        return this.array_states[faController.fa.name].state === "synced";
+    }
+
+    isStretched() {
+        // if there are 2 arrays in array_states, then the pod is stretched
+        return Object.keys(this.array_states).length > 1;
+    }
+
+    ac_write(packet, srcPort, faController) {
+        if (this.isFowarding(faController)) {
+            let acmessage = new ACMessage(this);
+            acmessage.srcPort = srcPort;
+            acmessage.original_packet = packet;
+            faController.acSendData(this, "ac_write", acmessage);
+        } else if (this.isWriting(faController)) {
+            srcPort.sendResponsePacket(packet, "write_ack", packet.data);
+        }
+        //else we do nothing, don't return anything
     }
 
     isPreferredArray(array) {
@@ -131,9 +155,9 @@ class ActiveClusterPod extends NetworkDevice {
     }
 
     //add and/or stretch Pod.
-    addArray(array) {
+    addArray(arrayObj) {
         //check if already in arrays:
-        if (array.name in this.array_states) {
+        if (arrayObj.name in this.array_states) {
             console.log("Array already in Pod");
             return;
         }
@@ -145,29 +169,35 @@ class ActiveClusterPod extends NetworkDevice {
         }
 
         // check lenght of arrays:
-        if (Object.keys(this.arrays).length == 1) {
-            this.array_states[array.name] = new PodArrayStates(array, "synced");
+        if (Object.keys(this.array_states).length == 0) {
+            this.array_states[arrayObj.name] = new PodArrayStates(arrayObj, "synced");
+            this.array_states[arrayObj.name].preElected = true;
             
         } else {
-            this.array_states[array.name] = new PodArrayStates(array, "offline");
+
+            this.array_states[arrayObj.name] = new PodArrayStates(arrayObj, "offline");
             this.stetched = true;
         }
         //check if pod already in array;
-        if (!(this.name in array.pods)) {
-            array.pods.push(this);
+        if (this.name in arrayObj.pods) {
+            console.log("Pod already in array");
+            return;
+        } else {
+            arrayObj.pods[this.name] = this;
+            
         }
     }
 
     //unstretch Pod
     removeArray(array) {
         //check that the array is in dictionary:
-        if (!(array.name in this.arrays)) {
+        if (!(array.name in this.array_states)) {
             console.log("Array not in Pod, can't unstretch");
             return;
         }
 
         //check that there are more than 1 entires is this.arrays:
-        if (Object.keys(this.arrays).length <= 1) {
+        if (Object.keys(this.array_states).length <= 1) {
             console.log("Can't unstretch, only 1 array in Pod");
             return;
         }
@@ -184,26 +214,27 @@ class ActiveClusterPod extends NetworkDevice {
         }
 
         //remove array from pod:
-        delete this.arrays[array.name];
+        delete this.array_states[array.name];
         delete array.pods[this.name];
         this.streched = false;
     }
 
-    getOtherArray(array) {
-        if (Object.keys(this.arrays).length == 2) {
-            if (array.name in this.arrays) {
-                for (let arrayName in this.arrays) {
-                    if (arrayName != array.name) {
-                        return this.arrays[arrayName];
-                    }
-                }
+    getOtherArray(arrayName) {
+        //this.array is a dictionary, where arrayname is the key and array is the value
+        //iterate through this.arrays(dictionary) and return the array that doesn't match array.
+        //get keys of this.arrays
+        let arrayNames = Object.keys(this.array_states);
+        //iterate through arrayNames and return the array that doesn't match arrayName
+        for (let name of arrayNames) {
+            if (name != arrayName) {
+                return this.array_states[name].array;
             }
         }
-        return null;
+        
     }
 
-    getOtherArrayState(array) {
-        let otherArray = this.getOtherArray(array);
+    getOtherArrayState(arrayName) {
+        let otherArray = this.getOtherArray(arrayName);
         if (otherArray) {
             return this.array_states[otherArray.name];
         }
@@ -276,19 +307,19 @@ class ActiveClusterPod extends NetworkDevice {
         //ActiveCluster
         // for each pod, get the primary controller
         //if the pod is not stretched, then we don't need to do anything
-        if (!this.stretched) {
+        if (!this.isStretched) {
             return;
           }
     
         let arrayName = faController.fa.name;
-        let states = pod.arrays_states[arrayName];
+        let states = this.array_states[arrayName];
   
         //check for heartbeats
         let acmessage = new ACMessage(this);
         states.fa_connected = false;
         states.mediator_connected = false;
-        faController.acSendData(pod, "ac_heartbeat", acmessage);
-        faController.acSendMed(pod, "mediator_heartbeat", acmessage);
+        faController.acSendData(this, "ac_heartbeat", acmessage);
+        faController.acSendMed(this, "mediator_heartbeat", acmessage);
 
         if (states.fa_connected) {
         //because we are connected now, we can look at the other array state to help figure out what to do:
@@ -342,46 +373,22 @@ class ActiveClusterPod extends NetworkDevice {
             // no fa connection
             switch(states.state) {
                 case "synced":
-                    if (!thisArrayStates.elected) {
-                        if (thisArrayStates.preElected) {
-                            thisArrayStates.elected = true;
+                    if (!states.elected) {
+                        if (states.preElected) {
+                            states.elected = true;
                         } else {
-                            thisArrayStates.state = "paused";
+                            states.state = "paused";
                         }   
                     }
                     break;
                 case "paused":
                     //send mediation request
-                    let mediation_request = new MediationRequest(pod);
-                    this.acSendMed(pod, "mediator_request", mediation_request);
+                    let mediation_request = new MediationRequest(this);
+                    faController.acSendMed(this, "mediator_request", mediation_request);
                     break;
                 
             }
         }
       }
 }
-
-
-/*
-    sendHeartbeat() {
-        let heartbeatPacket = new Packet(this, 'heartbeat', this.mediator, 'mediator_heartbeat_port', {});
-        // Assume sendPacket is a method to send packets
-        this.sendPacket(heartbeatPacket);  
-    }
-
-    requestDecision() {
-        let decisionRequestPacket = new Packet(this, 'decision_request', this.mediator, 'mediator_decision_port', {failoverPreference: 'your_preference'});
-        this.sendPacket(decisionRequestPacket);
-    }
-
-    receivePacket(packet) {
-        if(packet.message === 'mediator_decision') {
-            this.ready = packet.data.activeArray ? "online" : "offline";
-        }
-        super.receivePacket(packet);  // Call the parent class's receivePacket method
-    }
-    
-    sendPacket(packet) {
-        // Implement packet sending
-    }*/
 

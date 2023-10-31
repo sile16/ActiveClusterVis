@@ -25,7 +25,7 @@ class FlashArray  {
     this.hostEntries = {};
     this.read_latency = 0.4;
     this.write_latency = 0.1;
-    this.pods = [];
+    this.pods = {};
     this.hostConnectivity = hostConnectivity;
     this.acConnetivity = acConnetivity;
   }
@@ -290,6 +290,7 @@ class FlashArrayController  {
 
       //Step each AC Pod
       if (this.state === "primary") {
+        //this.fa.pods is a list
         for (let pod of Object.values(this.fa.pods)) {
            pod.acStep(this);
         }
@@ -338,7 +339,7 @@ class FlashArrayController  {
 
     acSendData(pod, message, data) {
       //send data to other controller
-      otherArray = pod.getOtherArray(this.fa.name);
+      let otherArray = pod.getOtherArray(this.fa.name);
       if (otherArray) {
         let dst_ports = [otherArray.ct0.ports["rep0"], otherArray.ct0.ports["rep1"], otherArray.ct1.ports["rep0"], otherArray.ct1.ports["rep1"]];
         let src_ports = [this.ports["rep0"], this.ports["rep1"]];
