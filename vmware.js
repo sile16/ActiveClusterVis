@@ -27,25 +27,37 @@ class Datastore {
 
     updatePath(volume, srcPort, packet) {
         //check to see if path exists and update it
-        //must match srcPort, packet.src, packet.srcPort
+        //must match srcPort, packet.src, packet.srcPort 
         let path = this.paths.find(p => p.srcPort === srcPort && p.dst === packet.src && p.dstPort === packet.srcPort);
 
         if (path) {
             path.optimized = volume.optimized;
             path.ready = volume.ready;
+            path.online = true; //we got a response from the array
         } else {
             //create path object
             let path = new Path(srcPort, packet.src, packet.srcPort, volume.optimized, volume.ready, true);
             //add path to paths
             this.paths.push(path);
+            //log new path details
+            console.log("VM Host [" + this.host.name + "] New path added, Datastore [" + this.name + "]: " + path.srcPort.fullName + " -> " + path.dst + ":" + path.dstPort);
         }
+    }
+
+    isOnline() {
+        //if at least one path is ready return true
+        for (let path of this.paths) {
+            if (path.ready && path.online) {
+                return true;
+            }
+        }
+        return false;
     }
 
     //readAck and writeAck are the same
     readAck(packet) {
-        //find path
-        let vm = packet.data.vm;
         // find the vm and pass the IO
+        let vm = packet.data.vm;
         let vmObj = this.host.vms.find(v => v.name === vm);
         if (vmObj) {
             vmObj.readAck(packet);
@@ -53,9 +65,8 @@ class Datastore {
     }
 
     writeAck(packet) {
-        //find path
-        let vm = packet.data.vm;
         // find the vm and pass the IO
+        let vm = packet.data.vm;
         let vmObj = this.host.vms.find(v => v.name === vm);
         if (vmObj) {
             vmObj.writeAck(packet);
@@ -110,7 +121,7 @@ class VMHost extends NetworkDevice {
         this.name = name.toLowerCase();
 
         //2 Ports FC0 & FC1
-        this.ports = [new Port("FC0", this), new Port("FC1", this)];
+        this.ports = [new Port("fc0", this), new Port("fc1", this)];
         this.targets = targets;
         
         this.vms = [];
@@ -124,11 +135,10 @@ class VMHost extends NetworkDevice {
             // add paths to paths
             for (let v of packet.data) {
                 // find datastore for volumes name
-                let name = v.name;
-                let datastore = this.datastores.find(d => d.name === name);
+                let datastore = this.datastores.find(d => d.name === v.name);
                 if (!datastore) {
                     //create datastore
-                    datastore = new Datastore(name, this);
+                    datastore = new Datastore(v.name, this);
                     this.datastores.push(datastore);
                 }
                 
@@ -137,33 +147,25 @@ class VMHost extends NetworkDevice {
                 }
 
             }
-            
-            // if all paths received, print paths
-            if (Object.keys(this.paths).length === this.targets.length * 4) {
-                // print paths
-                console.log(this.paths);
-            }
         }
         else if (packet.message === "read_ack") {
             //update datastore read latency
-            let datastore = this.datastores.find(d => d.name === packet.dst);
+            let io = packet.data
+            let datastore = this.datastores.find(d => d.name === io.volume);
             if (datastore) {
                 //set datastore latency
                 datastore.readAck(packet);
-                //set datastore latency
-                datastore.read_latency = packet.cumulativeLatency;
             }
             
             
         }
         else if (packet.message === "write_ack") {
             //update datastore read latency
-            let datastore = this.datastores.find(d => d.name === packet.dst);
+            let io = packet.data
+            let datastore = this.datastores.find(d => d.name === io.volume);
             if (datastore) {
                 datastore.writeAck(packet);
             }
-            //set datastore latency
-            datastore.write_latency = packet.cumulativeLatency;
         }
     }
 
@@ -204,7 +206,7 @@ class VM {
     constructor(name, hosts, datastoreName) {
         this.name = name.toLowerCase();
         this.hosts = hosts; //send in order or preference
-        this.datastoreName = datastoreName;
+        this.datastoreName = datastoreName.toLowerCase();
         
         this.currentHost = null;
         this.datastoreObj = null;
@@ -249,7 +251,7 @@ class VM {
         switch (this.state) {
             case "booting":
                 //find a host, that has a matching datastore and is online
-                let ready_host = this.hosts.find(h => h.datastores.find(d => d.name === this.datastoreName && d.online));
+                let ready_host = this.hosts.find(h => h.datastores.find(d => d.name === this.datastoreName && d.isOnline()));
                 if (ready_host) {
                     //send power on
                     this.currentHost = ready_host;
@@ -260,17 +262,22 @@ class VM {
                         this.datastoreObj = this.currentHost.datastores.find(d => d.name === this.datastoreName);
                     }
                     this.state = "running";
+                    //log vm powered on event on which host
+                    console.log("VM [" + this.name + "] powered on on host [" + this.currentHost.name + "]");
                 }
                 break;
 
             case "running":
             case "suspended":
                 //check if datastore is online
-                if (!this.datastoreObj.online) {
+                if (!this.datastoreObj.isOnline()) {
                     this.state = "suspended";
                 } else {
-                    this.datastoreObj.readIO();
-                    this.datastoreObj.writeIO();
+                    this.state = "running";
+                    this.datastoreObj.readIO(this.name);
+                    this.datastoreObj.writeIO(this.name);
+                    //print vm latency
+                    console.log("VM [" + this.name + "] read latency: " + this.read_latency + "ms, write latency: " + this.write_latency + "ms");
                 }
                 break;
             case "off":

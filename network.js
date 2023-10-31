@@ -1,3 +1,6 @@
+//make a global variable to track all connections:
+let globalAllConnections = [];
+
 class NetworkDevice {
     constructor() {
         this.state = "online";
@@ -68,11 +71,11 @@ class Port extends NetworkDevice {
 
     receivePacket(packet) {
 
-        console.log(this.device);  // Check what this.device is
-        console.log(this.device instanceof Switch);  // Check if this.device is an instance of Switch
-        console.log(Object.getPrototypeOf(this.device));  // Check the prototype of this.device
-        console.log(typeof this.device.isOnline);  // Check if isOnline is a function
-        console.log(this.device.isOnline());  // Check if isOnline is a function
+        //console.log(this.device);  // Check what this.device is
+        //console.log(this.device instanceof Switch);  // Check if this.device is an instance of Switch
+        //console.log(Object.getPrototypeOf(this.device));  // Check the prototype of this.device
+        //console.log(typeof this.device.isOnline);  // Check if isOnline is a function
+        //console.log(this.device.isOnline());  // Check if isOnline is a function
         
         if (this.device.isOnline()) {
             if (this.forwarding  || (packet.dst === this.device.name.toLowerCase() && packet.dstPort === this.name)) {
@@ -91,17 +94,25 @@ class Port extends NetworkDevice {
         }
     }
 
-    sendResponsePacket(packet, message, data ) {
+    sendResponsePacket(packet, message, data,latency=0, bandwidthGib=999999 ) {
         //create a copy of the packet object
         let p = new Packet(this.device.name, this.name, packet.src, packet.srcPort, message, data);
-        p.cumulativeLatency = packet.cumulativeLatency;
-        p.minBWGibObserved = packet.minBWGibObserved;
+        p.cumulativeLatency = packet.cumulativeLatency + latency;
+        if (packet.minBWGibObserved > bandwidthGib) {
+            p.minBWGibObserved = bandwidthGib;
+        } else {
+            p.minBWGibObserved = packet.minBWGibObserved;
+        }
         this.sendPacket(p);
     }
     
     sendNewPacket(dst, dstPort, message, data) {
         let p = new Packet(this.device.name, this.name, dst, dstPort, message, data);
         this.sendPacket(p);
+    }
+
+    sendNewPacket(dstPortObj, message, data) {
+        let p = new Packet(this.device.name, this.name, dstPortObj.device.name, dstPortObj.name, message, data);
     }
 }
 
@@ -129,6 +140,11 @@ class Switch extends NetworkDevice {
         return new Connection(port1, port2, latency, bandwidthGib);
     }
 
+    createSwitchConnection(switchObj, latency=0, bandwidthGib=999999) {
+        let port1 = this.createPort();
+        return switchObj.createConnection(port1, latency, bandwidthGib);
+    }
+
     receivePacketFromPort(packet, srcPort) {
         if (this.isOnline() ) {
             //check if this device is in the packet.route and drop if so to avoid loops
@@ -151,11 +167,14 @@ class Connection extends NetworkDevice {
     constructor(port1, port2, latency, bandwidthGib) {
         super();
         this.name = port1.fullName + "-" + port2.fullName;
+        this.name = this.name.toLowerCase();
         this.ports = [port1, port2];
         port1.connection = this;
         port2.connection = this;
         this.latency = latency;
         this.bandwidthGib = bandwidthGib;
+        this.dataFlowing = false;
+        globalAllConnections.push(this);
     }
 
     receivePacketFromPort(packet, srcPort) {
@@ -168,6 +187,12 @@ class Connection extends NetworkDevice {
             packet.addRoute(this.name, this.latency, this.bandwidthGib);
             for (let p of this.ports) {
                 if (p !== srcPort) {
+                    switch (packet.message) {
+                        case "read_ack":
+                        case "write_ack":
+                            this.dataFlowing = true;
+                            break;
+                    }
                     p.receivePacket(packet);
                 }
             }
