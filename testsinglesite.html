@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>State Machine Interface</title>
+<script src="network.js"></script>
+<script src="fa.js"></script>
+<script src="site.js"></script>
+<script src="vmware.js"></script>
+<style>
+    #output {
+        margin-top: 20px;
+        border: 1px solid #ccc;
+        padding: 10px;
+    }
+</style>
+</head>
+<body>
+
+<h1>State Machine Interface</h1>
+
+<button onclick="initializeSite()">Initialize Site</button>
+<button onclick="step()">Step</button>
+<br><br>
+
+<label for="objects">Select Object:</label>
+<select id="objects">
+    <option value="VMHost">VMHost</option>
+    <option value="VM">VM</option>
+    <option value="FlashArray">FlashArray</option>
+    <option value="Site">Site</option>
+    
+    <!-- Add swithc objects -->
+    <option value="FCSwtichA">FCSwtichA</option>
+    <option value="FCSwtichB">FCSwtichB</option>
+    
+</select>
+
+<label for="events">Select Event:</label>
+<select id="events">
+    <option value="recover">Recover</option>
+    <option value="promote">Promote</option>
+    <option value="fail">Fail</option>
+    <option value="power_on">Power On</option>
+    <option value="power_off">Power Off</option>
+    <option value="reboot">Reboot</option>
+    <!-- Add other events as needed -->
+</select>
+
+<button onclick="handleEvent()">Handle Event</button>
+<br><br>
+
+<button onclick="displayStates()">Display States</button>
+<button onclick="displayLatency()">Display Latency</button>
+<button onclick="displayPathInfo()">Display Path Info</button>
+
+<div id="output"></div>
+
+<script>
+    let site;
+
+    function initializeSite() {
+        site = new Site("Test Site");
+        updateOutput("Site Initialized");
+    }
+
+    function step() {
+        site.step();
+        updateOutput("Step Executed");
+    }
+
+    function handleEvent() {
+        const objectName = document.getElementById('objects').value;
+        const eventName = document.getElementById('events').value;
+        if(site && site[objectName] && site[objectName].handleEvent) {
+            site[objectName].handleEvent(eventName);
+            updateOutput(`${objectName} handled event: ${eventName}`);
+        } else {
+            updateOutput('Invalid object or event');
+        }
+    }
+
+    function displayStates() {
+        // Assuming a method getStates exists
+        const states = site.getStates();
+        updateOutput(JSON.stringify(states, null, 2));
+    }
+
+    function displayLatency() {
+        // Assuming a method getLatency exists
+        const latency = site.getLatency();
+        updateOutput(JSON.stringify(latency, null, 2));
+    }
+
+    function displayPathInfo() {
+        // Assuming a method getPathInfo exists
+        const pathInfo = site.getPathInfo();
+        updateOutput(JSON.stringify(pathInfo, null, 2));
+    }
+
+    function updateOutput(text) {
+        document.getElementById('output').innerText = text;
+    }
+</script>
+
+</body>
+</html>
