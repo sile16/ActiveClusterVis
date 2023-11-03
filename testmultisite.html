@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>State Machine Interface</title>
@@ -9,11 +10,19 @@
 <script src="site.js"></script>
 <script src="vmware.js"></script>
 <script src="ac.js"></script>
+<script src="cvis.js"></script>
+<script src="https://unpkg.com/cytoscape@3.17.2/dist/cytoscape.min.js"></script>
+
 <style>
     #output {
         margin-top: 20px;
         border: 1px solid #ccc;
         padding: 10px;
+    }
+    #cy {
+        width: 100%;
+        height: 600px;  /* Set a fixed height */
+        position: relative;
     }
 </style>
 </head>
@@ -25,84 +34,109 @@
 <button onclick="step()">Step</button>
 <br><br>
 
-<label for="objects">Select Object:</label>
-<select id="objects">
-    <option value="VMHost">VMHost</option>
-    <option value="VM">VM</option>
-    <option value="FlashArray">FlashArray</option>
-    <option value="Site">Site</option>
-    
-    <!-- Add swithc objects -->
-    <option value="FCSwtichA">FCSwtichA</option>
-    <option value="FCSwtichB">FCSwtichB</option>
-    
-</select>
-
 <label for="events">Select Event:</label>
 <select id="events">
+    <!-- Common events can remain hardcoded or be dynamically generated as well -->
     <option value="recover">Recover</option>
     <option value="promote">Promote</option>
     <option value="fail">Fail</option>
     <option value="power_on">Power On</option>
     <option value="power_off">Power Off</option>
     <option value="reboot">Reboot</option>
-    <!-- Add other events as needed -->
 </select>
-
-<button onclick="handleEvent()">Handle Event</button>
 <br><br>
 
-<button onclick="displayStates()">Display States</button>
-<button onclick="displayLatency()">Display Latency</button>
-<button onclick="displayPathInfo()">Display Path Info</button>
 
-<div id="output"></div>
+<label for="objects">Select Object:</label>
+<select id="objects"></select>
+<br><br>
+
+<button onclick="handleObjectAction()">Handle Object Event</button>
+<br><br>
+
+
+<label for="connections">Select Connection:</label>
+<select id="connections"></select>
+<br><br>
+
+<button onclick="handleConnectionAction()">Handle Connection Event</button>
+<br><br>
+
+<div id="cy"></div>
 
 <script>
     let site;
 
     function initializeSite() {
         site = new MultiSite("Test Site");
-        updateOutput("Site Initialized");
+        populateObjectsDropdown();
+        populateConnectionsDropdown();
+        updateVisualization(site);  // Add this line
+        
+        console.log("site initialized");
+        //updateOutput("Site Initialized");
+    }
+
+    function populateObjectsDropdown() {
+        const objectsDropdown = document.getElementById('objects');
+        objectsDropdown.innerHTML = '';  // Clear existing options
+
+        // Assuming each site in MultiSite has an allObjects array
+
+        for (let objectName in site.allObjects) {
+            const option = document.createElement('option');
+            option.value = objectName;  // Set value to object name
+            option.text = objectName;  // Set text to object name
+            objectsDropdown.add(option);
+        }
+    }
+
+    function populateConnectionsDropdown() {
+        const connectionsDropdown = document.getElementById('connections');
+        connectionsDropdown.innerHTML = '';  // Clear existing options
+
+        // Assuming globalAllConnections is globally accessible
+        for (let connectionName in globalAllConnections) {
+            const option = document.createElement('option');
+            // Assuming each connection has a unique identifier property
+            option.value = connectionName;  
+            option.text = connectionName;  
+            connectionsDropdown.add(option);
+        }
     }
 
     function step() {
         site.step();
-        updateOutput("Step Executed");
+        updateVisualization(site);  // Add this line
+        console.log("Step Executed");
     }
 
-    function handleEvent() {
+    function handleObjectAction() {
         const objectName = document.getElementById('objects').value;
         const eventName = document.getElementById('events').value;
-        if(site && site[objectName] && site[objectName].handleEvent) {
-            site[objectName].handleEvent(eventName);
-            updateOutput(`${objectName} handled event: ${eventName}`);
+        if(site.allObjects[objectName] && site.allObjects[objectName].handleAction) {
+            site.allObjects[objectName].handleAction(eventName);
+            console.log(`${objectName} handled event: ${eventName}`);
         } else {
-            updateOutput('Invalid object or event');
+            console.log('Invalid object or event');
         }
     }
 
-    function displayStates() {
-        // Assuming a method getStates exists
-        const states = site.getStates();
-        updateOutput(JSON.stringify(states, null, 2));
+    function handleConnectionAction() {
+        const connectionName = document.getElementById('connections').value;
+        const eventName = document.getElementById('events').value;
+        if(globalAllConnections[connectionName] && globalAllConnections[connectionName].handleAction) {
+            globalAllConnections[connectionName].handleAction(eventName);
+            console.log(`${connectionName} handled event: ${eventName}`);
+        } else {
+            console.log('Invalid connection or event');
+        }
     }
 
-    function displayLatency() {
-        // Assuming a method getLatency exists
-        const latency = site.getLatency();
-        updateOutput(JSON.stringify(latency, null, 2));
-    }
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSite();
+});
 
-    function displayPathInfo() {
-        // Assuming a method getPathInfo exists
-        const pathInfo = site.getPathInfo();
-        updateOutput(JSON.stringify(pathInfo, null, 2));
-    }
-
-    function updateOutput(text) {
-        document.getElementById('output').innerText = text;
-    }
 </script>
 
 </body>

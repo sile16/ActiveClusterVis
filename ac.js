@@ -19,8 +19,9 @@ class ACMessage {
     }
 }
 
-class Mediator {
+class Mediator extends NetworkDevice {
     constructor(name = "Cloud Mediator") {
+        super(name);
         this.name = name.toLowerCase();
         this.activeArray = null;
         this.ports = [new Port('eth0', this)];
@@ -30,11 +31,11 @@ class Mediator {
     }
     
     receivePacketFromPort(packet, srcPort) {
-        if (packet.message === "mediator_heartbeat") {
+        if (packet.message === "ac_mediator_heartbeat") {
             // create new packet to send back
-            srcPort.sendResponsePacket(packet, "mediator_heartbeat_ack", packet.data);
+            srcPort.sendResponsePacket(packet, "ac_mediator_heartbeat_ack", packet.data);
 
-        } else if (packet.message === "mediation_request") {
+        } else if (packet.message === "ac_mediation_request") {
             //first check if there is an existing mediation
             let existingRequest = this.mediation_requests.find(r => r.podName === packet.src);
             
@@ -80,14 +81,37 @@ class PodArrayStates {
         this.fa_connected = false;
         this.mediator_connected = false;
         this.elected = false;
+        this.state_timers = {};
+        this.state_timer_thresholds = {};
+        this.state_timer_thresholds["baselining"] = 2;
+    }
+
+    incrementTimerisDone() {
+        //check if state is in dictionary, and it's a number
+        if (!(this.state in this.state_timers) || typeof this.state_timers[this.state] != "number") {
+            this.resetStateTimer(this.state);
+        }
+
+        this.state_timers[this.state] += 1;
+        if ( this.state_timers[this.state] >= this.state_timer_thresholds[this.state]) {
+            //delete the timer and return true
+            delete this.state_timers[this.state];
+            return true;
+        }
+        return false;
+    }
+
+    resetStateTimer() {
+        this.state_timers[this.state] = 0;
     }
 }
 
 
+
+
 class ActiveClusterPod extends NetworkDevice {
     constructor(name, mediator, mediatorPort) {
-        super();
-        this.name = name;
+        super(name);
         this.mediator = mediator;
         this.mediatorPort = mediatorPort;
         this.volumes = [];
@@ -96,38 +120,28 @@ class ActiveClusterPod extends NetworkDevice {
         this.failoverPreference = null;
     }
 
-    preElect() {
-        if(this.failoverPreference)
-        {
-            this.array_states[this.failoverPreference].preElected = true;
-        } else {
-            //pick an array at random:
-            let arrayNames = Object.keys(this.array_states);
-            let arrayName = arrayNames[Math.floor(Math.random() * arrayNames.length)];
-            this.array_states[arrayName].preElected = true;
-        }
-    }
 
-    clearElections() {
-        for (let arrayState of this.array_states) {
-            arrayState.preElected = false;
-            arrayState.elected = false;
-        }
-    }
 
-    isFowarding(faController) {
-        let array = faController.fa;
+    
+
+    isFowarding(faControllerObj) {
+        let array = faControllerObj.fa;
         let otherArray = this.getOtherArray(array.name);
-        
 
         if (this.array_states[array.name].state === "synced" && this.array_states[otherArray.name].state === "synced") {
-            return true;
+            if (this.array_states[array.name].fa_connected && this.array_states[otherArray.name].fa_connected) {
+                //shouldn't have to check this but... Let check and log if it happens
+                return true;
+            }
+            else {
+                console.log("Array [" + array.name + "] pod [" + this.name + "] is not forwarding because loss of heartbeat with other array");
+            }
         }
         return false;
     }
     
-    isWriting(faController) {
-        return this.array_states[faController.fa.name].state === "synced";
+    isWriting(faControllerObj) {
+        return this.array_states[faControllerObj.fa.name].state === "synced";
     }
 
     isStretched() {
@@ -175,7 +189,7 @@ class ActiveClusterPod extends NetworkDevice {
             
         } else {
 
-            this.array_states[arrayObj.name] = new PodArrayStates(arrayObj, "offline");
+            this.array_states[arrayObj.name] = new PodArrayStates(arrayObj, "added");
             this.stetched = true;
         }
         //check if pod already in array;
@@ -189,9 +203,9 @@ class ActiveClusterPod extends NetworkDevice {
     }
 
     //unstretch Pod
-    removeArray(array) {
+    removeArray(arrayObj) {
         //check that the array is in dictionary:
-        if (!(array.name in this.array_states)) {
+        if (!(arrayObj.name in this.array_states)) {
             console.log("Array not in Pod, can't unstretch");
             return;
         }
@@ -205,7 +219,7 @@ class ActiveClusterPod extends NetworkDevice {
         //for each volume in the pod check if it's in a hostEntry:
         for (let volume of this.volumes) {
             //check if volume is in a hostEntry:
-            for (let hostEntry of array.hostEntries) {
+            for (let hostEntry of arrayObj.hostEntries) {
                 if (hostEntry.cotainsVolume(volume)) {
                     console.log("Can't unstretch, volume " + volume.name + " is in a hostEntry");
                     return;
@@ -214,8 +228,8 @@ class ActiveClusterPod extends NetworkDevice {
         }
 
         //remove array from pod:
-        delete this.array_states[array.name];
-        delete array.pods[this.name];
+        delete this.array_states[arrayObj.name];
+        delete arrayObj.pods[this.name];
         this.streched = false;
     }
 
@@ -233,7 +247,7 @@ class ActiveClusterPod extends NetworkDevice {
         
     }
 
-    getOtherArrayState(arrayName) {
+    getOtherArrayStates(arrayName) {
         let otherArray = this.getOtherArray(arrayName);
         if (otherArray) {
             return this.array_states[otherArray.name];
@@ -303,6 +317,7 @@ class ActiveClusterPod extends NetworkDevice {
         return true;
     }
 
+
     acStep(faController){
         //ActiveCluster
         // for each pod, get the primary controller
@@ -319,53 +334,57 @@ class ActiveClusterPod extends NetworkDevice {
         states.fa_connected = false;
         states.mediator_connected = false;
         faController.acSendData(this, "ac_heartbeat", acmessage);
-        faController.acSendMed(this, "mediator_heartbeat", acmessage);
+        faController.acSendMed(this, "ac_mediator_heartbeat", acmessage);
 
         if (states.fa_connected) {
         //because we are connected now, we can look at the other array state to help figure out what to do:
             let otherArrayStates = this.getOtherArrayStates(arrayName)
             if (otherArrayStates.state === "synced") {
                 switch(states.state) {
+                case "added":
+                    states.state = "baselining";
+                    states.resetStateTimer();
+                    console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
+                    break;
                 case "baselining":
-                    states.state = "synced";
+                    if(states.incrementTimerisDone()) {
+                        states.state = "synced";
+                    }
+                    //log
+                    console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
                     break;
 
                 case "offline":
                     states.state = "re-syncing";
+                    console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
                     break;
 
                 case "re-syncing":
                     states.state = "synced";
+                    console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
                     break;
 
                 case "paused":
-                    //check other array state:
+                    //Othere array is synced, so we go to re-syncing
                     states.state = "re-syncing";
+                    console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
                     break;
 
                 case "synced":
                     //check for pre-election
-                    if (!states.mediator_connected && !otherArrayStates.mediator_connected && 
-                        !otherArrayStates.preElected && !otherArrayStates.elected && 
-                        !states.preElected && !states.elected) {
-                            this.preElect();
-                        
-                    } else {
-                        //clear preElected flag
-                        //clear elected flags
-                        pod.clearElections();
-                    }
+                    this.preElect(faController);
                 }
             } //end of "synced"
             else if (otherArrayStates.state === "paused") {
                 switch(states.state) {
                 case "paused":
                     // both were paused, i'm the first to bring things online, so i'm in sync
-                    pod.arrays_states[this.fa.name].state = "synced";
+                    pod.array_states[arrayName].state = "synced";
+                    console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
                     break;
                 default:
                     //not sure how we get here, lets log amessage:
-                    console.log("Array [" + this.fa.name + "] is paused, but other array is not paused or synced, so we can't do anything")
+                    console.log("Array [" + arrayName + "] is paused, but other array is not paused or synced, so we can't do anything")
                 }
             }
         } //end of if (pod_state.fa_connected)  
@@ -376,8 +395,10 @@ class ActiveClusterPod extends NetworkDevice {
                     if (!states.elected) {
                         if (states.preElected) {
                             states.elected = true;
+                            console.log("Array [" + arrayName + "] pod [" + this.name + "] is elected!");
                         } else {
                             states.state = "paused";
+                            console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
                         }   
                     }
                     break;
@@ -385,10 +406,64 @@ class ActiveClusterPod extends NetworkDevice {
                     //send mediation request
                     let mediation_request = new MediationRequest(this);
                     faController.acSendMed(this, "mediator_request", mediation_request);
+                    console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
+                    console.log("Array [" + arrayName + "] pod contactiing Mediator.");
                     break;
                 
             }
         }
       }
+
+      preElect(faController) {
+        let arrayName = faController.fa.name;
+        let states = this.array_states[arrayName];
+        let otherArrayStates = this.getOtherArrayStates(arrayName);
+
+        if (!states.mediator_connected && !otherArrayStates.mediator_connected && 
+            !otherArrayStates.preElected && !otherArrayStates.elected && 
+            !states.preElected && !states.elected) {
+            if(this.failoverPreference)
+            {
+                this.array_states[this.failoverPreference].preElected = true;
+                //log event:
+                console.log("Array [" + this.failoverPreference + "] pod [" + this.name + "] is pre-elected by Failover Prefeerence");
+            } else {
+            //pick an array at random:
+                let arrayNames = Object.keys(this.array_states);
+                let arrayName = arrayNames[Math.floor(Math.random() * arrayNames.length)];
+                this.array_states[arrayName].preElected = true;
+                console.log("Array [" + this.failoverPreference + "] pod [" + this.name + "] is pre-elected, no Failover Preference set");
+            }
+        } else {
+            //clear preElected flag
+            //clear elected flags
+            this.clearElections(faController);
+        }
+
+        
+    }
+
+    clearElections(faController) {
+        let arrayName = faController.fa.name;
+        let states = this.array_states[arrayName];
+        let otherArrayStates = this.getOtherArrayStates(arrayName);
+        
+        if (this.isFowarding(faController)) {
+            //this.array_states is a dictionary, iterate through the objects and clear the preElected and elected flags
+            for (let name in this.array_states) {
+                let arrayState = this.array_states[name];
+                if (arrayState.preElected) {
+                    arrayState.preElected = false;
+                    //log
+                    console.log("Array [" + arrayState.array.name + "] pod [" + this.name + "] is no longer pre-elected");
+                }
+                if (arrayState.elected) {
+                    arrayState.elected = false;
+                    //log
+                    console.log("Array [" + arrayState.array.name + "] pod [" + this.name + "] is no longer elected");
+                }
+            }
+        }
+    }
 }
 

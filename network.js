@@ -1,8 +1,29 @@
 //make a global variable to track all connections:
-let globalAllConnections = [];
+let globalAllConnections = {};
 
-class NetworkDevice {
-    constructor() {
+class Group {
+    constructor(name) {
+        this.name = name.toLowerCase();
+        this.label = name;
+        this.parent = "";
+        this.children = [];
+    }
+
+    addChild(child) {
+        this.children.push(child);
+        child.parent = this;
+    }
+
+    addChildren(children) {
+        for (let child of children) {
+            this.addChild(child);
+        }
+    }
+}
+
+class NetworkDevice extends Group {
+    constructor(name) {
+        super(name);
         this.state = "online";
     }
 
@@ -10,7 +31,7 @@ class NetworkDevice {
         return this.state === "online";
     }
 
-    handleEvent(event) {
+    handleAction(event) {
         switch (event) {
             case "fail":
                 this.state = "failed";
@@ -56,8 +77,7 @@ class Packet {
 class Port extends NetworkDevice {
     // text name, device is the device that owns the port
     constructor(name, device, packetHandler = null ) {
-        super();
-        this.name = name.toLowerCase();
+        super(name);
         this.device = device;
         this.fullName = this.device.name + "-" + this.name;
         this.packetHandler = packetHandler;
@@ -83,6 +103,16 @@ class Port extends NetworkDevice {
                     this.packetHandler(packet, this);
                 } else {
                   this.device.receivePacketFromPort(packet, this);
+                }
+                if (!this.forwarding && this.device.isOnline()) {
+                    //this means we are the destination of the packet, mark all connections path as flowing
+                    for (let r of packet.route) {
+                        let conn = globalAllConnections[r.device];
+                        if (conn) {
+                            conn.dataFlowing = true;
+                        }
+                    }
+                    
                 }
             }
         }
@@ -113,6 +143,7 @@ class Port extends NetworkDevice {
 
     sendNewPacket(dstPortObj, message, data) {
         let p = new Packet(this.device.name, this.name, dstPortObj.device.name, dstPortObj.name, message, data);
+        this.sendPacket(p);
     }
 }
 
@@ -120,15 +151,14 @@ class Port extends NetworkDevice {
 
 class Switch extends NetworkDevice {
     constructor(name) {
-        super();
-        this.name = name.toLowerCase();
+        super(name);
         this.ports = [];
     }
         
 
     createPort() {
         //set port name to switch name + port number
-        let name = this.name + "-" + this.ports.length;
+        let name = "" + this.ports.length;
         let port = new Port(name, this);
         port.forwarding = true;
         this.ports.push(port);
@@ -165,16 +195,14 @@ class Switch extends NetworkDevice {
 
 class Connection extends NetworkDevice {
     constructor(port1, port2, latency, bandwidthGib) {
-        super();
-        this.name = port1.fullName + "-" + port2.fullName;
-        this.name = this.name.toLowerCase();
+        super(port1.fullName + " <-> " + port2.fullName);
         this.ports = [port1, port2];
         port1.connection = this;
         port2.connection = this;
         this.latency = latency;
         this.bandwidthGib = bandwidthGib;
         this.dataFlowing = false;
-        globalAllConnections.push(this);
+        globalAllConnections[this.name] = this;
     }
 
     receivePacketFromPort(packet, srcPort) {
@@ -187,16 +215,21 @@ class Connection extends NetworkDevice {
             packet.addRoute(this.name, this.latency, this.bandwidthGib);
             for (let p of this.ports) {
                 if (p !== srcPort) {
-                    switch (packet.message) {
-                        case "read_ack":
-                        case "write_ack":
-                            this.dataFlowing = true;
-                            break;
+                    //if packet.message contains "ack" then set dataFlowing to true
+                    if (packet.message.includes("ack")) {
+                        this.dataFlowing = true;
+                        //log
+                        //console.log("dataFlowing: " + this.name);
                     }
                     p.receivePacket(packet);
                 }
             }
         }
     }
+
+    clearFlowing() {
+        this.dataFlowing = false;
+    }
+    
 }
 

@@ -14,33 +14,35 @@ class IO {
   }
 }
 
-class FlashArray  {
+class FlashArray extends NetworkDevice {
   constructor(name, hostConnectivity = "FC", acConnetivity = "ETH") {
-    this.name = name.toLowerCase();
+    super(name);
     this.ct0 = new FlashArrayController(`${name}-ct0`, this);
     this.ct1 = new FlashArrayController(`${name}-ct1`, this);
     this.ct0.setOtherController(this.ct1);
     this.ct1.setOtherController(this.ct0);
     this.controllers = [this.ct0, this.ct1];
     this.hostEntries = {};
-    this.read_latency = 0.4;
-    this.write_latency = 0.1;
+    this.read_latency = 0.5;
+    this.write_latency = 0.2;
     this.pods = {};
     this.hostConnectivity = hostConnectivity;
     this.acConnetivity = acConnetivity;
+    this.addChild(this.ct0);
+    this.addChild(this.ct1);
   }
     
-  handleEvent(action) {
-    if (action !== "promote") {
-      this.controllers.forEach(controller => controller.handleEvent(action));
+  handleAction(action) {
+    if (action !== "promote" && action !== "step") {
+      this.controllers.forEach(controller => controller.handleAction(action));
     }
   }
 
   handleControllerEvent(controllerName, action) {
       if (controllerName === 'CT0') {
-          this.ct0.handleEvent(action);
+          this.ct0.handleAction(action);
       } else if (controllerName === 'CT1') {
-          this.ct1.handleEvent(action);
+          this.ct1.handleAction(action);
       } else {
           console.error('Invalid controller name:', controllerName);
       }
@@ -61,6 +63,7 @@ class FlashArray  {
 class HostEntry {
   constructor(fa, host) {
     this.fa = fa;
+    this.parent = fa;
     this.host = host;
     this.volumes = [];
     this.preferredArrays = {};
@@ -108,12 +111,13 @@ class HostEntry {
   }
 }
 
-class FlashArrayController  {
+class FlashArrayController extends NetworkDevice {
 
   constructor(name, flashArray ) {
-    this.name = name;
+    super(name);
     this.state = 'secondary';
     this.fa = flashArray;
+
     
     this.ports = {};
     this.otherController = null;
@@ -251,7 +255,7 @@ class FlashArrayController  {
     }
     
 
-    handleEvent(event) {
+    handleAction(event) {
       let otherController = this.getOtherController();
 
       switch (event) {
@@ -303,10 +307,12 @@ class FlashArrayController  {
         let acmessage = packet.data;
         switch (packet.message) {
           case "ac_write":
-            srcPort.sendNewResponsePacket(packet, "ac_write_ack", acmessage);
+            packet.addRoute(this, this.fa.write_latency);
+            srcPort.sendResponsePacket(packet, "ac_write_ack", acmessage);
             break;
           case "ac_write_ack":
             // have to do a little extra work to make sure we pass the cumlative latency, and minBWGibObserved
+
 
             
             acmessage.srcPort.sendResponsePacket(acmessage.original_packet, "write_ack", 
@@ -314,11 +320,19 @@ class FlashArrayController  {
                                                      packet.cumulativeLatency, 
                                                      packet.minBWGibObserved);
             break;
-          case "ac_hearbeat":
+          case "ac_heartbeat":
             srcPort.sendResponsePacket(packet, "ac_heartbeat_ack", acmessage);
             break;
           case "ac_heartbeat_ack":
-            acmessage.pod.arrays_states[this.fa.name].fa_connected = true;
+            //if packet cumm latency is > 11 we error:
+            if ( packet.cumulativeLatency >= 12 ) {
+              //log WAN latency too high
+              console.log("Array ["+ this.name + "] for pod ["+acmessage.pod.name+"] latency too high, must be under 12, observed: " + packet.cumulativeLatency);
+
+            } else {
+              acmessage.pod.array_states[this.fa.name].fa_connected = true;
+            }
+            
             break;
         }
       }
@@ -326,10 +340,12 @@ class FlashArrayController  {
   
       receivePacketFromPortMgmt(packet, srcPort) {
         //I don't think AC fowards packets to other controller:
+        let acmessage = packet.data;
         if (this.state === "primary") {
           switch (packet.message) {
             case "ac_mediator_heartbeat_ack":
-              acmessage.pod.arrays_states[this.fa.name].mediator_connected = true;
+              acmessage.pod.array_states[this.fa.name].mediator_connected = true;
+              
               break;
             case "ac_mediator_decision":
               break;
@@ -339,27 +355,31 @@ class FlashArrayController  {
 
     acSendData(pod, message, data) {
       //send data to other controller
-      let otherArray = pod.getOtherArray(this.fa.name);
-      if (otherArray) {
-        let dst_ports = [otherArray.ct0.ports["rep0"], otherArray.ct0.ports["rep1"], otherArray.ct1.ports["rep0"], otherArray.ct1.ports["rep1"]];
-        let src_ports = [this.ports["rep0"], this.ports["rep1"]];
-        //send message from both source ports to all destination ports
-        for (let src_port of src_ports) {
-          for (let dst_port of dst_ports) {
-            src_port.sendNewPacket(dst_port, message, data);
+      if(this.state === "primary") {
+        let otherArray = pod.getOtherArray(this.fa.name);
+        if (otherArray) {
+          let dst_ports = [otherArray.ct0.ports["rep0"], otherArray.ct0.ports["rep1"], otherArray.ct1.ports["rep0"], otherArray.ct1.ports["rep1"]];
+          let src_ports = [this.ports["rep0"], this.ports["rep1"]];
+          //send message from both source ports to all destination ports
+          for (let src_port of src_ports) {
+            for (let dst_port of dst_ports) {
+              src_port.sendNewPacket(dst_port, message, data);
+            }
           }
         }
       }
     }
 
     acSendMed(pod, message, data) {
-      //send data to mediator
-      let dst_ports = pod.mediator.ports;
-      let src_ports = [this.ports["mgmt0"], this.ports["mgmt1"]];
-      //send message from both source ports to all destination ports
-      for (let src_port of src_ports) {
-        for (let dst_port of dst_ports) {
-          src_port.sendNewPacket(dst_port, message, data);
+      if(this.state === "primary") {
+        //send data to mediator
+        let dst_ports = pod.mediator.ports;
+        let src_ports = [this.ports["mgmt0"], this.ports["mgmt1"]];
+        //send message from both source ports to all destination ports
+        for (let src_port of src_ports) {
+          for (let dst_port of dst_ports) {
+            src_port.sendNewPacket(dst_port, message, data);
+          }
         }
       }
     }

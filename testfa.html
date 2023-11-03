@@ -7,13 +7,13 @@
 </head>
 <body>
 
-<button onclick="handleEvent('CT0', 'fail')">Fail CT0</button>
-<button onclick="handleEvent('CT0', 'recover')">Recover CT0</button>
-<button onclick="handleEvent('CT0', 'promote')">Promote CT0</button>
-<button onclick="handleEvent('CT1', 'fail')">Fail CT1</button>
-<button onclick="handleEvent('CT1', 'recover')">Recover CT1</button>
-<button onclick="handleEvent('CT1', 'promote')">Promote CT1</button>
-<button onclick="flashArray.handleEvent('step');updateView();">Step</button>
+<button onclick="handleAction('CT0', 'fail')">Fail CT0</button>
+<button onclick="handleAction('CT0', 'recover')">Recover CT0</button>
+<button onclick="handleAction('CT0', 'promote')">Promote CT0</button>
+<button onclick="handleAction('CT1', 'fail')">Fail CT1</button>
+<button onclick="handleAction('CT1', 'recover')">Recover CT1</button>
+<button onclick="handleAction('CT1', 'promote')">Promote CT1</button>
+<button onclick="flashArray.handleAction('step');updateView();">Step</button>
 
 <p id="CT0State">CT0 State: Primary</p>
 <p id="CT1State">CT1 State: Secondary</p>
@@ -26,7 +26,7 @@
   // Create a new FlashArray instance
   const flashArray = new FlashArray('Array1');
 
-  function handleEvent(controllerName, action) {
+  function handleAction(controllerName, action) {
     flashArray.handleControllerEvent(controllerName, action);
     updateView();
   }

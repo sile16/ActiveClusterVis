@@ -117,9 +117,8 @@ class Target {
 
 class VMHost extends NetworkDevice {
     constructor(name, targets) {
-        super();
-        this.name = name.toLowerCase();
-
+        super(name);
+        
         //2 Ports FC0 & FC1
         this.ports = [new Port("fc0", this), new Port("fc1", this)];
         this.targets = targets;
@@ -213,9 +212,11 @@ class VM {
         this.state = "off";
         this.read_latency = "unknown";
         this.write_latency = "unknown";
+        this.read_latencies = [];
+        this.write_latencies = [];
     }
 
-    handleEvent(event) {
+    handleAction(event) {
         switch (event) {
             case "power_off":
                 this.state = "off";
@@ -237,17 +238,38 @@ class VM {
     }
 
     readAck(packet) {
-        //Update latency
-        this.read_latency = packet.cumulativeLatency;
-        
+        this.read_latencies.push(packet.cumulativeLatency);
+
+        //average all entries in the read_latencies array and store in read_latency
+        let sum = 0;
+        for (let latency of this.read_latencies) {
+            sum += latency;
+        }
+        this.read_latency = sum / this.read_latencies.length;
+        //round to 1 decimal place
+        this.read_latency = Math.round(this.read_latency * 10) / 10;
     }
 
     writeAck(packet) {
-        //find path
-        this.write_latency = packet.cumulativeLatency;
+        this.write_latencies.push(packet.cumulativeLatency);
+        //average all entries in the write_latencies array and store in write_latency
+        let sum = 0;
+        for (let latency of this.write_latencies) {
+            sum += latency;
+        }
+        
+        this.write_latency = sum / this.write_latencies.length;
+        //round to 1 decimal place
+        this.write_latency = Math.round(this.write_latency * 10) / 10;
     }
 
     step() {
+        //clear latencies
+        this.read_latency = "unknown";
+        this.write_latency = "unknown";
+        this.read_latencies = [];
+        this.write_latencies = [];
+
         switch (this.state) {
             case "booting":
                 //find a host, that has a matching datastore and is online
@@ -277,7 +299,7 @@ class VM {
                     this.datastoreObj.readIO(this.name);
                     this.datastoreObj.writeIO(this.name);
                     //print vm latency
-                    console.log("VM [" + this.name + "] read latency: " + this.read_latency + "ms, write latency: " + this.write_latency + "ms");
+                    console.log("VM [" + this.name + "] Avg read latency: " + this.read_latency + "ms all readIO [" +this.read_latencies+"], Avg write latency: " + this.write_latency + "ms all writeIO [" +this.write_latencies+"]");
                 }
                 break;
             case "off":
