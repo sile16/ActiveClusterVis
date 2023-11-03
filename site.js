@@ -106,7 +106,7 @@ class Site extends NetworkDevice {
     step() {
         //reset all connection dataflowing to false
         //iterate through fas, vmhosts, and vms dictionaries, and step each object
-        for (let o in this.childrenObjects) {
+        for (let o of this.children) {
             o.handleAction("step");
         }
  
@@ -117,9 +117,14 @@ class CloudSite extends NetworkDevice {
     constructor(name) {
         super(name);
 
+
         this.mediator = new Mediator();
         //create a cloud switch
         this.cloudSwitch = new Switch("cloudSwitch");
+
+        //create a connection between the mediator and the cloud switch
+        this.cloudSwitch.createConnection(this.mediator.ports[0]);
+
 
         this.addChild(this.mediator);
         this.addChild(this.cloudSwitch);
@@ -129,10 +134,21 @@ class CloudSite extends NetworkDevice {
 class MultiSite extends NetworkDevice{
     constructor(name, rep_cross_connect, uniform) {
         super(name);
+
        
         let site1 = new Site("site1");
+        //site1.layout['x'] = 0;
+        //site1.layout['y'] = 0;
+
         let site2 = new Site("site2");
+        //site1.layout['x'] = 50;
+        //site1.layout['y'] = 0;
+        //site2.layout['x'] = {x: 50, y: 0}
+
         let site3 = new CloudSite("site3");
+        //site3.layout['x'] = {x: 25, y: 80}
+
+
     
         this.pods = {};
         
@@ -153,10 +169,23 @@ class MultiSite extends NetworkDevice{
         pod.addArray(site2.fa);
         this.pod = pod;
 
+        //create pod group
+        let podGroup = new Group("ActiveCluster Pods");
+        podGroup.addChildren([pod]);
+        this.podGroup = podGroup;
+        
+
         //create vm on the pod DS
         site1.hostEntry.addVolume("pod1::podDS1");
         this.VM = new VM("podvm1", [site1.vmhost, site2.vmhost], "pod1::podDS1");
         this.VM.handleAction("power_on");
+        
+    
+        // Create Powered Off VM's Group
+        let poweredOffVMsGroup = new Group("Powered Off VMs");
+        poweredOffVMsGroup.addChildren([this.VM]);
+        this.addChild(poweredOffVMsGroup);
+        this.poweredOffVMsGroup = poweredOffVMsGroup;
 
         //combine all the site1 & site2 allObjects into one list
         //combine the allObjects, which is a list of dictionaries, into one list
@@ -164,7 +193,7 @@ class MultiSite extends NetworkDevice{
         //iterate through ditionary site.1.allObjects and add to this.allObjects   
         
         this.addChildren([site1, site2, site3]);
-        this.addChildren([this.pod, this.VM]);
+        this.addChildren([podGroup, poweredOffVMsGroup]);
     }
 
     step() {
@@ -175,14 +204,12 @@ class MultiSite extends NetworkDevice{
             globalAllConnections[c].clearFlowing();
         }
 
-
-        for (let k in this.allObjects) {
-            
+        for (let o of this.children) {
             //check if this object has a handleAction method
-            if (this.allObjects[k].handleAction) {
-                this.allObjects[k].handleAction("step");
+            if (o.handleAction) {
+                o.handleAction("step");
             } else {
-                console.log("no handleAction method for object " + k);
+                console.log("no handleAction method for object: "+o+"  objName: " + o.name);
             }
         }
        

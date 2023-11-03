@@ -37,9 +37,9 @@
 <label for="events">Select Event:</label>
 <select id="events">
     <!-- Common events can remain hardcoded or be dynamically generated as well -->
+    <option value="fail">Fail</option>
     <option value="recover">Recover</option>
     <option value="promote">Promote</option>
-    <option value="fail">Fail</option>
     <option value="power_on">Power On</option>
     <option value="power_off">Power Off</option>
     <option value="reboot">Reboot</option>
@@ -71,6 +71,7 @@
         site = new MultiSite("Test Site");
         populateObjectsDropdown();
         populateConnectionsDropdown();
+        //do 1 step to initialize the site
         updateVisualization(site);  // Add this line
         
         console.log("site initialized");

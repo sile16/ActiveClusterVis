@@ -1,7 +1,7 @@
 //define a path object has, host, volume, array, controller, port,
 class VolumeEntry {
   constructor(name, optimized, ready) {
-    this.name = name;
+    this.name = name.replace(/\s+/g, "_").toLowerCase();;
     this.optimized = optimized;
     this.ready = ready;
   }
@@ -33,7 +33,7 @@ class FlashArray extends NetworkDevice {
   }
     
   handleAction(action) {
-    if (action !== "promote" && action !== "step") {
+    if (action !== "promote" ) {
       this.controllers.forEach(controller => controller.handleAction(action));
     }
   }
@@ -286,6 +286,8 @@ class FlashArrayController extends NetworkDevice {
     // function for step forward in the state machine
     step() {
       // Soft promote, always check to see if we need to be promoted.
+
+
       let otherController = this.getOtherController();
       if (this.state === "secondary" && otherController.state !== "primary" ) {
         this.state = "primary";

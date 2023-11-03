@@ -14,7 +14,7 @@ let datastoreStates = ["online", "suspended"];
 class Datastore {
     // data will have paths
     constructor(name, host) {
-        this.name = name.toLowerCase(); //this is same as volume name
+        this.name = name.replace(/\s+/g, "_").toLowerCase();
         this.host = host;
 
         this.paths = [];
@@ -203,7 +203,7 @@ let vmStates = ["off", "powering_on", "running", "suspended"];
 
 class VM {
     constructor(name, hosts, datastoreName) {
-        this.name = name.toLowerCase();
+        this.name = name.replace(/\s+/g, "_").toLowerCase();
         this.hosts = hosts; //send in order or preference
         this.datastoreName = datastoreName.toLowerCase();
         
@@ -221,6 +221,7 @@ class VM {
             case "power_off":
                 this.state = "off";
                 this.currentHost = null;
+                
                 this.datastoreObj = null;
                 break;
             case "power_on":
@@ -229,6 +230,7 @@ class VM {
             case "restart":
                 this.state = "booting";
                 this.currentHost = null;
+                
                 this.datastoreObj = null;
                 break;
             case "step":
@@ -277,10 +279,12 @@ class VM {
                 if (ready_host) {
                     //send power on
                     this.currentHost = ready_host;
+                    
 
                     //add this vm the host list if not already there
                     if (!this.currentHost.vms.find(v => v.name === this.name)) {
                         this.currentHost.vms.push(this);
+
                         this.datastoreObj = this.currentHost.datastores.find(d => d.name === this.datastoreName);
                     }
                     this.state = "running";

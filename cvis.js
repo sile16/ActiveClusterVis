@@ -6,17 +6,16 @@ function getStateColor(state) {
             return 'red';
         case 'secondary':
             return 'blue';
+        case 'primary':
+        case 'online':
+            return 'green';
         default:
-            return 'green';  // or any other default color
+            return 'grey';  // or any other default color
     }
 }
 
-const edgeBaseStyle = {
-    'curve-style': 'bezier',
-    'width': 3,
-    'line-color': '#888',
-    'opacity': 0.5
-};
+
+
 
 function pulseEdge(edgeId) {
     const edge = cy.$id(edgeId);
@@ -25,21 +24,14 @@ function pulseEdge(edgeId) {
     const min_width = 3;
     
     function animate() {
-        if (growing) {
-            edge.animate({
-                style: { 'width': max_width },
-                duration: 300,
-                easing: 'ease-in-out',
-                complete: animate  // callback for continuous animation
-            });
-        } else {
-            edge.animate({
-                style: { 'width': min_width },
-                duration: 300,
-                easing: 'ease-in-out',
-                complete: animate  // callback for continuous animation
-            });
-        }
+        const width = growing ? max_width : min_width;
+        
+        edge.animate({
+            style: { 'width': width },
+            duration: 300,
+            easing: 'ease-in-out',
+            complete: animate  // callback for continuous animation
+        });
         growing = !growing;
     }
     
@@ -65,6 +57,7 @@ const redXSVG = `
 
 const redXDataURL = 'data:image/svg+xml;base64,' + btoa(redXSVG);
 let allObjects = {};
+let parentChanges = [];
 
 function addElementsRecursively(obj, elements) {
     let elementData = {
@@ -72,21 +65,40 @@ function addElementsRecursively(obj, elements) {
             id: obj.name, 
             label: obj.name,
             parent: obj.parent.name,
-            textColor: getStateColor(obj.state)
+            textColor: getStateColor(obj.state),
+            bgColor: getStateColor(obj.state)
         },
         classes: obj.constructor.name
     };
     allObjects[obj.name] = obj;
 
+    
+
+
     if (obj.constructor.name === 'VM') {
         // If this object is a VM, set its parent to its associated VMHost
+        
         if(obj.currentHost){
             elementData.data.parent = obj.currentHost.name;
         } else {
-            elementData.data.parent = null;
+            elementData.data.parent = site.poweredOffVMsGroup.name;
         }
-        elementData.data.backgroundImage = "vm.jpeg";
 
+
+        if(cy){
+            let currParent = cy.getElementById(obj.name).parent().id();
+            if(currParent !== elementData.data.parent) {
+
+                parentChanges.push({
+                    child: obj.name,
+                    newParent: elementData.data.parent
+                });
+            }
+        }
+        elementData.data.backgroundImage = "images/vm.jpeg";
+
+    } else if (obj.constructor.name === 'Mediator') {
+        elementData.data.backgroundImage = "images/cloud.png";
     }
 
     elements.push(elementData);
@@ -96,11 +108,15 @@ function addElementsRecursively(obj, elements) {
             addElementsRecursively(child, elements);
         }
     }
+
+
 }
 
 function updateVisualization(site) {
     const elements = [];
+    parentChanges = [];
     addElementsRecursively(site, elements);
+    
 
     for (let connectionName in globalAllConnections) {
         const conn = globalAllConnections[connectionName];
@@ -123,49 +139,104 @@ function updateVisualization(site) {
         }
     }
 
+    let style = [
+        {
+            selector: 'node',
+            style: {
+                'label': 'data(label)',
+                'background-color': 'data(bgColor)',
+                'background-image': function(node) {
+                    let backgroundImage = node.data('backgroundImage');
+                    if (node.data('crossedOut')) {
+                        return backgroundImage ? [backgroundImage, redXDataURL] : [redXDataURL];
+                    } else {
+                        return backgroundImage ? [backgroundImage] : [];
+                    }
+                },
+                'background-fit': 'cover cover'
+                
+            }
+        },
+        {
+            selector: 'edge',
+            style: {
+                'line-color': 'data(statusColor)',  // Changed lineColor to statusColor
+            }
+        },
+        {
+            selector: '.Group',
+            style: {
+                'background-color': 'white'
+            }
+        },
+        {
+            selector: '.Site',
+            style: {
+                'background-color': 'white'
+            }
+        },
+        {
+            selector: '.CloudSite',
+            style: {
+                'background-color': 'white'
+            }
+        },
+        {
+            selector: '.MultiSite',
+            style: {
+                'background-color': 'white'
+            }
+        },
+        {
+            selector: '.FlashArray',
+            style: {
+                'background-color': 'white'
+            }
+        },
+        {
+            selector: '.VMHost',
+            style: {
+                'background-color': 'white',
+                'shape': 'rectangle',
+                'border-width': '2px',
+                'border-color': 'black',
+                'width': '150px',
+                'height': '40px',
+            }
+        }
+    ];
+    
     if (!cy) {
         cy = cytoscape({
            container: document.getElementById('cy'),
            elements: elements,
-           style: [
-               {
-                   selector: 'node',
-                   style: {
-                       'label': 'data(label)',
-                       'background-image': function(node) {
-                           let backgroundImage = node.data('backgroundImage');
-                           if (backgroundImage) {
-                               if (node.data('crossedOut')) {
-                                   return [redXDataURL, backgroundImage];
-                               } else {
-                                   return [backgroundImage];
-                               }
-                           } else {
-                               return [];
-                           }
-                       },
-                       'background-fit': 'cover cover'
-                   }
-               },
-               {
-                   selector: 'edge',
-                   style: {
-                       'line-color': 'data(statusColor)',  // Changed lineColor to statusColor
-                   }
-               },
-               {
-                   selector: 'node[?crossedOut]',
-                   style: {
-                       'background-image': [redXDataURL, '/path/to/your/existing/background.png'],
-                       'background-fit': ['cover', 'cover'],
-                   }
-               }
-           ],
+           style: style,
            layout: {
-               name: 'cose',
-               nestingFactor: 1.2,
-           }
-       });
+            name: 'preset',
+            //idealEdgeLength: 100, // Adjust this value for your needs
+            positions: savedPositions      // Adjust this value for your needs
+            //refresh: 20,
+            //fit: true,
+            //padding: 40,
+            //randomize: false,
+            //nestingFactor: 0,
+            //gravity: 100,          // Adjust this value for your needs
+            
+        }});
+
+        /*
+        cy.nodes().forEach(node => {
+            const layoutInfo = node.data('layout');
+            if (layoutInfo) {
+                // Here, you could run specific layout algorithms based on layoutInfo
+                // For instance:
+                
+                node.children().layout(layoutInfo).run();
+                // Add more conditions for other layouts as needed
+            }
+        }); */
+
+
 
        cy.on('tap', 'node', function(evt){
            const nodeId = evt.target.id();
@@ -179,14 +250,46 @@ function updateVisualization(site) {
            handleEdgeClick(edgeId, eventName);
        });
     } else {
+        parentChanges.forEach(change => {
+            let childNode = cy.getElementById(change.child);
+            let parentNode = cy.getElementById(change.newParent);
+            const originalParentPosition = parentNode.position();
+
+            childNode.position(originalParentPosition);
+            
+            childNode.move({ parent: parentNode.id() });
+            parentNode.position(originalParentPosition);
+            layoutChildrenInGrid(parentNode);
+        });
+        parentChanges = {};
+
        cy.json({ elements: elements });
+       cy.json({ style: style });
+       cy.style().update();
     }
 }
 
 
 function handleNodeClick(nodeId, eventName) {
-    if(allObjects[nodeId] && allObjects[nodeId].handleAction) {
+    
+
+    //check if node exists in allObjects
+    if (!allObjects[nodeId]) {
+        return;
+    }
+
+    if(allObjects[nodeId].handleAction) {
         allObjects[nodeId].handleAction(eventName);
+
+        let nodesToCrossOut = cy.$('#'+nodeId);
+        if (allObjects[nodeId].state === 'failed') {
+             // get nodes by IDs
+            nodesToCrossOut.data('crossedOut', true);
+        }
+        else {
+            nodesToCrossOut.removeData('crossedOut');
+        }
+        cy.style().update();
         console.log(`${nodeId} handled event: ${eventName}`);
     } else {
         console.log('Invalid node or event');
@@ -194,10 +297,73 @@ function handleNodeClick(nodeId, eventName) {
 }
 
 function handleEdgeClick(edgeId, eventName) {
-    if(globalAllConnections[edgeId] && globalAllConnections[edgeId].handleAction) {
-        globalAllConnections[edgeId].handleAction(eventName);
-        console.log(`${edgeId} handled event: ${eventName}`);
-    } else {
-        console.log('Invalid edge or event');
-    }
+    globalAllConnections[edgeId].handleAction(eventName);
 }
+
+function adjustParentBoundingBox(parent) {
+    let childrenBoundingBox = parent.children().boundingBox();
+
+    let newWidth = Math.max(childrenBoundingBox.w, parent.width());
+    let newHeight = Math.max(childrenBoundingBox.h, parent.height());
+
+    parent.style({
+        'width': newWidth + 'px',
+        'height': newHeight + 'px'
+    });
+}
+
+
+function layoutChildrenInGrid(parent) {
+    parent.lock();
+
+    const originalPosition = {
+        x: parent.position('x'),
+        y: parent.position('y')
+    };
+
+    // 1. Get the initial bounding box center of the children
+    let initialChildrenCenter = {
+        x: (parent.children().boundingBox().x1 + parent.children().boundingBox().x2) / 2,
+        y: (parent.children().boundingBox().y1 + parent.children().boundingBox().y2) / 2
+    };
+
+    // 2. Apply the grid layout to the children
+    let children = parent.children();
+    children.layout({
+        name: 'grid',
+        fit: false,
+        boundingBox: parent.boundingBox(),
+        avoidOverlap: true,
+        spacingFactor: 1.05,
+        cols: undefined
+    }).run();
+
+    // 3. Calculate the shift in the bounding box center of the children due to the layout
+    let newChildrenCenter = {
+        x: (parent.children().boundingBox().x1 + parent.children().boundingBox().x2) / 2,
+        y: (parent.children().boundingBox().y1 + parent.children().boundingBox().y2) / 2
+    };
+
+    let diffX = newChildrenCenter.x - initialChildrenCenter.x;
+    let diffY = newChildrenCenter.y - initialChildrenCenter.y;
+
+    // 4. Adjust the positions of the children nodes accordingly
+    children.positions(function(node) {
+        return {
+            x: node.position('x') - diffX,
+            y: node.position('y') - diffY
+        };
+    });
+
+    adjustParentBoundingBox(parent);
+
+    // 5. Set the position of the parent to its original position
+    parent.position(originalPosition);
+    parent.unlock();
+}
+
+
+
+
+
+let savedPositions = {"test_site":{"x":2004.7099632227403,"y":856.5177729010808},"powered_off_vms":{"x":1516.4533849129518,"y":1288.467343021004},"podvm1":{"x":1418.8357725982742,"y":1294.7467460996734},"site1":{"x":1620.3017954223433,"y":769.6900762278281},"site1fa1":{"x":1425.703075038387,"y":804.3117609924608},"site1fa1-ct0":{"x":1325.2624178496962,"y":746.6382591235024},"site1fa1-ct1":{"x":1526.1437322270779,"y":878.9852628614192},"site1_vmware":{"x":1447.359037404193,"y":534.0308552094407},"site1vmhost":{"x":1411.5519748178062,"y":457.47046196849584},"site1fcswitcha":{"x":1363.9858012748384,"y":543.8381928037437},"site1fcswitchb":{"x":1530.2322735335476,"y":632.5912484503855},"site1_mgmtsw":{"x":1519.8387726651665,"y":1107.879496787516},"site1mgmtswitch1":{"x":1391.8845219272166,"y":1112.349303087872},"site1mgmtswitch2":{"x":1647.7930234031164,"y":1120.40969048716},"site1_replicationsw":{"x":1875.3358939134978,"y":806.9823954655474},"site1replicationswitch1":{"x":1876.3411729949905,"y":750.7485584656545},"site1replicationswitch2":{"x":1874.330614832005,"y":880.2162324654403},"site1vm1":{"x":1509.982640329001,"y":1294.7467460996731},"site2":{"x":2379.3949633316074,"y":759.4012284350898},"site2fa1":{"x":2538.399445465353,"y":800.0045642204557},"site2fa1-ct0":{"x":2673.0441734273422,"y":736.7782184127547},"site2fa1-ct1":{"x":2403.7547175033637,"y":880.2309100281566},"site2_vmware":{"x":2594.937957276395,"y":512.5659779438485},"site2vmhost":{"x":2652.1575085957843,"y":436.91979054473467},"site2fcswitcha":{"x":2514.218405957006,"y":525.1605958516717},"site2fcswitchb":{"x":2652.375228846249,"y":610.2121653429622},"site2_mgmtsw":{"x":2445.972161348718,"y":1110.6872736219486},"site2mgmtswitch1":{"x":2298.4688241499043,"y":1120.382666325445},"site2mgmtswitch2":{"x":2593.4754985475315,"y":1117.9918809184524},"site2_replicationsw":{"x":2116.8996459420155,"y":802.2952553932255},"site2replicationswitch1":{"x":2120.1668738166004,"y":749.4751073742274},"site2replicationswitch2":{"x":2113.6324180674305,"y":872.1154034122236},"site2vm1":{"x":1611.0709972276295,"y":1299.1879399423347},"site3":{"x":1993.8674772848008,"y":1278.9132583308874},"cloud_mediator":{"x":1993.8674772848005,"y":1342.6157552574268},"cloudswitch":{"x":1994.6909362547922,"y":1232.2107614043477},"activecluster_posd":{"x":2432.935600117573,"y":1276.5789521471916},"pod1":{"x":2432.935600117573,"y":1285.0789521471916}};

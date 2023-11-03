@@ -1,10 +1,16 @@
 //make a global variable to track all connections:
 let globalAllConnections = {};
 
-class Group {
+
+
+class NetworkDevice  {
     constructor(name) {
-        this.name = name.toLowerCase();
+        //replace all spaces with underscores
+        this.name = name.replace(/\s+/g, "_").toLowerCase();
+
+
         this.label = name;
+        this.state = "online";
         this.parent = "";
         this.children = [];
     }
@@ -18,13 +24,6 @@ class Group {
         for (let child of children) {
             this.addChild(child);
         }
-    }
-}
-
-class NetworkDevice extends Group {
-    constructor(name) {
-        super(name);
-        this.state = "online";
     }
 
     isOnline() {
@@ -46,6 +45,18 @@ class NetworkDevice extends Group {
     }
 
     step() {
+    }
+}
+
+class Group extends NetworkDevice {
+    constructor(name) {
+       super(name);   
+    }
+
+    step() {
+        for (let child of this.children) {
+            child.step();
+        }
     }
 }
 

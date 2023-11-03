@@ -22,7 +22,6 @@ class ACMessage {
 class Mediator extends NetworkDevice {
     constructor(name = "Cloud Mediator") {
         super(name);
-        this.name = name.toLowerCase();
         this.activeArray = null;
         this.ports = [new Port('eth0', this)];
         this.delay = 2;
@@ -51,6 +50,15 @@ class Mediator extends NetworkDevice {
                 let request = new MediationRequest(packet.src, packet.data.array1, packet.data.array2, packet.data.failoverPreference);
                 this.mediation_requests.push(request);
             }
+        }
+    }
+
+    handleAction(action) {
+        super.handleAction(action);
+        if (action === "fail") {
+            this.state = "failed";
+        } else if (action === "recover") {
+            this.state = "online";
         }
     }
 
