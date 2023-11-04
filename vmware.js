@@ -165,7 +165,10 @@ class VMHost extends NetworkDevice {
             if (datastore) {
                 datastore.writeAck(packet);
             }
+        } else {
+            return false;
         }
+        return true;
     }
 
     getPaths() {

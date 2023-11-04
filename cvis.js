@@ -20,8 +20,8 @@ function getStateColor(state) {
 function pulseEdge(edgeId) {
     const edge = cy.$id(edgeId);
     let growing = true;
-    const max_width = 5;
-    const min_width = 3;
+    const max_width = 6;
+    const min_width = 4;
     
     function animate() {
         const width = growing ? max_width : min_width;
@@ -161,6 +161,7 @@ function updateVisualization(site) {
             selector: 'edge',
             style: {
                 'line-color': 'data(statusColor)',  // Changed lineColor to statusColor
+                'width': '2px',
             }
         },
         {

@@ -198,7 +198,7 @@ class FlashArrayController extends NetworkDevice {
     if (this.state === "secondary") {
       //forward to primary
       packet.addRoute(this, 0);
-      this.otherController.receivePacketFromPortFC(packet, srcPort);
+      return this.otherController.receivePacketFromPortFC(packet, srcPort);
     }
     else if (this.state === "primary") {
       // return list of paths
@@ -210,6 +210,7 @@ class FlashArrayController extends NetworkDevice {
         //create response packet
         packet.addRoute(this, 0);
         srcPort.sendResponsePacket(packet, "volumes", volumes);
+        return true;
 
       }
       else if (packet.message == "write") {
@@ -217,12 +218,12 @@ class FlashArrayController extends NetworkDevice {
 
           //check host volume access
           if (!this.checkHostVolumeAccess(packet.src, volume_name)) {
-            return;
+            return true;
           }
 
           //check if volume is available.
           if (!this.isVolumeAvailable(volume_name)) {
-            return;
+            return true;
           }
 
           packet.addRoute(this, this.fa.write_latency);
@@ -239,11 +240,11 @@ class FlashArrayController extends NetworkDevice {
 
           //check host volume access
           if (!this.checkHostVolumeAccess(packet.src, volume_name)) {
-            return;
+            return true;
           }
           //check if volume is available.
           if (!this.isVolumeAvailable(volume_name)) {
-            return;
+            return true;
           }
 
           packet.addRoute(this, this.fa.read_latency);
@@ -252,6 +253,7 @@ class FlashArrayController extends NetworkDevice {
         }
         
       }
+      return false;  //packet not processed
     }
     
 
@@ -336,8 +338,13 @@ class FlashArrayController extends NetworkDevice {
             }
             
             break;
+          default:
+            return false; // marked as not received.
+          
         }
+        return true; // Marked as received.
       }
+      return false; // not received.
     }
   
       receivePacketFromPortMgmt(packet, srcPort) {
@@ -351,15 +358,20 @@ class FlashArrayController extends NetworkDevice {
               break;
             case "ac_mediator_decision":
               break;
+            default:
+              return false;
+            
           }
+          return true;
         }
+        return false;
     }
 
     acSendData(pod, message, data) {
       //send data to other controller
-      if(this.state === "primary") {
+      if(this.state === "primary" && this.isOnline()) {
         let otherArray = pod.getOtherArray(this.fa.name);
-        if (otherArray) {
+        if (otherArray ) {
           let dst_ports = [otherArray.ct0.ports["rep0"], otherArray.ct0.ports["rep1"], otherArray.ct1.ports["rep0"], otherArray.ct1.ports["rep1"]];
           let src_ports = [this.ports["rep0"], this.ports["rep1"]];
           //send message from both source ports to all destination ports
@@ -373,7 +385,7 @@ class FlashArrayController extends NetworkDevice {
     }
 
     acSendMed(pod, message, data) {
-      if(this.state === "primary") {
+      if(this.state === "primary" && this.isOnline()) {
         //send data to mediator
         let dst_ports = pod.mediator.ports;
         let src_ports = [this.ports["mgmt0"], this.ports["mgmt1"]];

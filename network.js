@@ -107,20 +107,22 @@ class Port extends NetworkDevice {
         //console.log(Object.getPrototypeOf(this.device));  // Check the prototype of this.device
         //console.log(typeof this.device.isOnline);  // Check if isOnline is a function
         //console.log(this.device.isOnline());  // Check if isOnline is a function
-        
+        let rc = false;
         if (this.device.isOnline()) {
             if (this.forwarding  || (packet.dst === this.device.name.toLowerCase() && packet.dstPort === this.name)) {
                 if ( this.packetHandler ) {
-                    this.packetHandler(packet, this);
+                    rc = this.packetHandler(packet, this);
                 } else {
-                  this.device.receivePacketFromPort(packet, this);
+                    rc =this.device.receivePacketFromPort(packet, this);
                 }
-                if (!this.forwarding && this.device.isOnline()) {
+                if (!this.forwarding) {
+                    if (rc) {
                     //this means we are the destination of the packet, mark all connections path as flowing
-                    for (let r of packet.route) {
-                        let conn = globalAllConnections[r.device];
-                        if (conn) {
-                            conn.dataFlowing = true;
+                        for (let r of packet.route) {
+                            let conn = globalAllConnections[r.device];
+                            if (conn) {
+                                conn.dataFlowing = true;
+                            }
                         }
                     }
                     
@@ -130,31 +132,38 @@ class Port extends NetworkDevice {
     }
 
     sendPacket(packet) {
-        if (this.connection) {
+        if (this.device.isOnline() && this.connection) {
             this.connection.receivePacketFromPort(packet, this);
         }
     }
 
     sendResponsePacket(packet, message, data,latency=0, bandwidthGib=999999 ) {
         //create a copy of the packet object
-        let p = new Packet(this.device.name, this.name, packet.src, packet.srcPort, message, data);
-        p.cumulativeLatency = packet.cumulativeLatency + latency;
-        if (packet.minBWGibObserved > bandwidthGib) {
-            p.minBWGibObserved = bandwidthGib;
-        } else {
-            p.minBWGibObserved = packet.minBWGibObserved;
+        if (this.device.isOnline() ) {
+            let p = new Packet(this.device.name, this.name, packet.src, packet.srcPort, message, data);
+            p.cumulativeLatency = packet.cumulativeLatency + latency;
+            if (packet.minBWGibObserved > bandwidthGib) {
+                p.minBWGibObserved = bandwidthGib;
+            } else {
+                p.minBWGibObserved = packet.minBWGibObserved;
+            }
+            this.sendPacket(p);
         }
-        this.sendPacket(p);
+        
     }
     
     sendNewPacket(dst, dstPort, message, data) {
-        let p = new Packet(this.device.name, this.name, dst, dstPort, message, data);
-        this.sendPacket(p);
+        if (this.device.isOnline() ) {
+            let p = new Packet(this.device.name, this.name, dst, dstPort, message, data);
+            this.sendPacket(p);
+        }
     }
 
     sendNewPacket(dstPortObj, message, data) {
-        let p = new Packet(this.device.name, this.name, dstPortObj.device.name, dstPortObj.name, message, data);
-        this.sendPacket(p);
+        if (this.device.isOnline() ) {
+            let p = new Packet(this.device.name, this.name, dstPortObj.device.name, dstPortObj.name, message, data);
+            this.sendPacket(p);
+        }
     }
 }
 
@@ -196,7 +205,12 @@ class Switch extends NetworkDevice {
             packet.addRoute(this.name);
             for (let p of this.ports) {
                 if (p !== srcPort) {
-                    p.sendPacket(packet);
+                    //make a copy of p
+                    let packetCopy = new Packet(packet.src, packet.srcPort, packet.dst, packet.dstPort, packet.message, packet.data);
+                    packetCopy.route = packet.route.slice();
+                    packetCopy.cumulativeLatency = packet.cumulativeLatency;
+                    packetCopy.minBWGibObserved = packet.minBWGibObserved;
+                    p.sendPacket(packetCopy);
                 }
             }
         }
@@ -226,16 +240,12 @@ class Connection extends NetworkDevice {
             packet.addRoute(this.name, this.latency, this.bandwidthGib);
             for (let p of this.ports) {
                 if (p !== srcPort) {
-                    //if packet.message contains "ack" then set dataFlowing to true
-                    if (packet.message.includes("ack")) {
-                        this.dataFlowing = true;
-                        //log
-                        //console.log("dataFlowing: " + this.name);
-                    }
                     p.receivePacket(packet);
                 }
             }
         }
+        //always return false, since we are not the destination of the packet
+        return false;
     }
 
     clearFlowing() {
