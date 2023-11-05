@@ -63,7 +63,7 @@ function addElementsRecursively(obj, elements) {
     let elementData = {
         data: { 
             id: obj.name, 
-            label: obj.name,
+            label: obj.label ? obj.label : obj.name,
             parent: obj.parent.name,
             textColor: getStateColor(obj.state),
             bgColor: getStateColor(obj.state)
@@ -99,6 +99,12 @@ function addElementsRecursively(obj, elements) {
 
     } else if (obj.constructor.name === 'Mediator') {
         elementData.data.backgroundImage = "images/cloud.png";
+    } else if(obj.constructor.name === 'Switch') {
+        elementData.data.backgroundImage = "images/switch.png";
+    } else if(obj.constructor.name === 'NetworkGroup' && obj.name.includes('vmware')) {
+        elementData.data.backgroundImage = "images/vmhost.jpeg";
+    } else if(obj.constructor.name === 'FlashArray') {
+        elementData.data.backgroundImage = "images/pure.png";
     }
 
     elements.push(elementData);
@@ -135,6 +141,8 @@ function updateVisualization(site) {
         } else {
             if(cy){
                 cy.$id(conn.name).stop(true);
+                //set edget width to 2px   
+                cy.$id(conn.name).style('width', '2px');
             }
         }
     }
@@ -157,6 +165,7 @@ function updateVisualization(site) {
                 
             }
         },
+        
         {
             selector: 'edge',
             style: {
@@ -165,9 +174,11 @@ function updateVisualization(site) {
             }
         },
         {
-            selector: '.Group',
+            selector: '.NetworkGroup',
             style: {
-                'background-color': 'white'
+                'background-color': 'white',
+                'background-image-fit': 'contain',
+                'background-image-opacity': '0.15',
             }
         },
         {
@@ -183,6 +194,13 @@ function updateVisualization(site) {
             }
         },
         {
+            selector: '.Mediator',
+            style: {
+                'width': '60px',
+                'height': '60px'
+            }
+        },
+        {
             selector: '.MultiSite',
             style: {
                 'background-color': 'white'
@@ -191,18 +209,49 @@ function updateVisualization(site) {
         {
             selector: '.FlashArray',
             style: {
-                'background-color': 'white'
+                'background-color': 'white',
+                'background-image-opacity': '0.2',
+                'background-fit': 'contain'
             }
         },
+        {
+            selector: '.FlashArrayController',
+            style: {
+                'shape': 'rectangle',
+                'z-compound-depth': 'top',
+                'z-index': '9999',
+                'background-color': 'white',
+                //set backgroun opacity
+                //'background-opacity': '0.2',
+                'border-width': '4px',
+                'border-color': 'data(textColor)',
+                'text-valign': 'center',
+                'text-halign': 'center',
+                'color': 'data(textColor)',
+                'width': '100px',
+                'height': '40px',
+                //set label text color
+                //'label-color': 'data(textColor)',
+            }
+        },
+        
         {
             selector: '.VMHost',
             style: {
                 'background-color': 'white',
+                
                 'shape': 'rectangle',
                 'border-width': '2px',
                 'border-color': 'black',
                 'width': '150px',
                 'height': '40px',
+            }
+        },
+        {
+            selector: '.Switch',
+            style: {
+                width: '80px',
+                shape: 'rectangle',
             }
         }
     ];
@@ -282,16 +331,20 @@ function handleNodeClick(nodeId, eventName) {
     if(allObjects[nodeId].handleAction) {
         allObjects[nodeId].handleAction(eventName);
 
-        let nodesToCrossOut = cy.$('#'+nodeId);
-        if (allObjects[nodeId].state === 'failed') {
-             // get nodes by IDs
-            nodesToCrossOut.data('crossedOut', true);
+        //check all nodes in allObjects and set crossedOut to true if failed
+
+        for( let node in allObjects) {
+
+            let nodesToCrossOut = cy.$('#'+node);
+            if (allObjects[node].state === 'failed') {
+                // get nodes by IDs
+                nodesToCrossOut.data('crossedOut', true);
+            }
+            else {
+                nodesToCrossOut.removeData('crossedOut');
+            }
+            cy.style().update();
         }
-        else {
-            nodesToCrossOut.removeData('crossedOut');
-        }
-        cy.style().update();
-        console.log(`${nodeId} handled event: ${eventName}`);
     } else {
         console.log('Invalid node or event');
     }

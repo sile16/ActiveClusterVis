@@ -2,7 +2,9 @@
 //Create a site with a VMWare host, a VM and a datastore, 2 FC switches, 1 flasharray
 //Global variable globalAllConnections contains all connections in the network
 
-class Site extends NetworkDevice {
+
+
+class Site extends NetworkGroup {
     constructor(name, parent) {
         super(name);
 
@@ -30,7 +32,7 @@ class Site extends NetworkDevice {
         for (let k in this.vmhosts) {
             vmhostList.push(this.vmhosts[k]);
         }
-        let VMWareGroup = new Group(name + " VMWare");
+        let VMWareGroup = new NetworkGroup(name + " VMWare");
 
         this.addChild(VMWareGroup);
         VMWareGroup.addChildren(vmhostList);
@@ -63,7 +65,7 @@ class Site extends NetworkDevice {
         let mgmtswitch2 = new Switch(name+"mgmtswitch2");
         this.mgmtswitch1 = mgmtswitch1;
         this.mgmtswitch2 = mgmtswitch2;
-        let mgmtGroup = new Group(name + " MgmtSW");
+        let mgmtGroup = new NetworkGroup(name + " MgmtSW");
         mgmtGroup.addChildren([mgmtswitch1, mgmtswitch2]);
         this.addChild(mgmtGroup);
 
@@ -78,7 +80,7 @@ class Site extends NetworkDevice {
         let replicationSwitch2 = new Switch(name+"replicationswitch2");
         this.replicationSwitch1 = replicationSwitch1;
         this.replicationSwitch2 = replicationSwitch2;
-        let replicationGroup = new Group(name + " ReplicationSW");
+        let replicationGroup = new NetworkGroup(name + " ReplicationSW");
         replicationGroup.addChildren([replicationSwitch1, replicationSwitch2]);
         this.addChild(replicationGroup);
         
@@ -101,19 +103,20 @@ class Site extends NetworkDevice {
             this.addChild(vm);
         }
 
-    }
 
-    step() {
-        //reset all connection dataflowing to false
-        //iterate through fas, vmhosts, and vms dictionaries, and step each object
-        for (let o of this.children) {
-            o.handleAction("step");
-        }
- 
+        
     }
+ 
+    preStep() {
+        for (let conn in globalAllConnections) {
+            globalAllConnections[conn].clearFlowing();
+        }
+        super.preStep();
+    }
+    
 }
 
-class CloudSite extends NetworkDevice {
+class CloudSite extends NetworkGroup {
     constructor(name) {
         super(name);
 
@@ -129,9 +132,11 @@ class CloudSite extends NetworkDevice {
         this.addChild(this.mediator);
         this.addChild(this.cloudSwitch);
     }
+
+
 }
 
-class MultiSite extends NetworkDevice{
+class MultiSite extends NetworkGroup {
     constructor(name, rep_cross_connect, uniform) {
         super(name);
 
@@ -170,7 +175,7 @@ class MultiSite extends NetworkDevice{
         this.pod = pod;
 
         //create pod group
-        let podGroup = new Group("ActiveCluster Pods");
+        let podGroup = new NetworkGroup("ActiveCluster Pods");
         podGroup.addChildren([pod]);
         this.podGroup = podGroup;
         
@@ -182,7 +187,7 @@ class MultiSite extends NetworkDevice{
         
     
         // Create Powered Off VM's Group
-        let poweredOffVMsGroup = new Group("Powered Off VMs");
+        let poweredOffVMsGroup = new NetworkGroup("Powered Off VMs");
         poweredOffVMsGroup.addChildren([this.VM]);
         this.addChild(poweredOffVMsGroup);
         this.poweredOffVMsGroup = poweredOffVMsGroup;
@@ -214,4 +219,6 @@ class MultiSite extends NetworkDevice{
         }
        
     }
+
+  
 }

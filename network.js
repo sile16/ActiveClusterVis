@@ -1,8 +1,6 @@
 //make a global variable to track all connections:
 let globalAllConnections = {};
 
-
-
 class NetworkDevice  {
     constructor(name) {
         //replace all spaces with underscores
@@ -12,18 +10,7 @@ class NetworkDevice  {
         this.label = name;
         this.state = "online";
         this.parent = "";
-        this.children = [];
-    }
-
-    addChild(child) {
-        this.children.push(child);
-        child.parent = this;
-    }
-
-    addChildren(children) {
-        for (let child of children) {
-            this.addChild(child);
-        }
+        
     }
 
     isOnline() {
@@ -41,21 +28,69 @@ class NetworkDevice  {
             case "step":
                 this.step();
                 break;
+            case "pre_step":
+                this.preStep();
+                break;
+            case "post_step":
+                this.postStep();
+                break;
+        }
+    }
+
+    fullStep() {
+        //this should only be called at the highest level node
+        this.preStep();
+        this.step();
+        this.postStep();
+    }
+
+    preStep() {}
+        
+    step() {}
+
+    postStep() {}
+}
+
+class NetworkGroup extends NetworkDevice {
+    constructor(name) {
+       super(name); 
+       this.children = [];  
+    }
+
+    addChild(child) {
+        this.children.push(child);
+        child.parent = this;
+    }
+
+    addChildren(children) {
+        for (let child of children) {
+            this.addChild(child);
         }
     }
 
     step() {
-    }
-}
-
-class Group extends NetworkDevice {
-    constructor(name) {
-       super(name);   
-    }
-
-    step() {
         for (let child of this.children) {
-            child.step();
+            child.handleAction("step");
+        }
+    }
+
+    preStep() {
+        //reset all connection dataflowing to false
+        
+        for (let child of this.children) {
+            child.handleAction("pre_step");
+        }
+    }
+
+    postStep() {
+        for (let child of this.children) {
+            child.handleAction("post_step");
+        }
+    }
+
+    handleAction(event) {
+        for (let child of this.children) {
+            child.handleAction(event);
         }
     }
 }

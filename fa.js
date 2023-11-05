@@ -14,11 +14,13 @@ class IO {
   }
 }
 
-class FlashArray extends NetworkDevice {
+class FlashArray extends NetworkGroup {
   constructor(name, hostConnectivity = "FC", acConnetivity = "ETH") {
     super(name);
     this.ct0 = new FlashArrayController(`${name}-ct0`, this);
     this.ct1 = new FlashArrayController(`${name}-ct1`, this);
+    this.ct0.label = "CT0";
+    this.ct1.label = "CT1";
     this.ct0.setOtherController(this.ct1);
     this.ct1.setOtherController(this.ct0);
     this.controllers = [this.ct0, this.ct1];
@@ -280,6 +282,12 @@ class FlashArrayController extends NetworkDevice {
         case "step":
           this.step();
           break;
+        case "pre_step":
+            this.preStep();
+            break;
+        case "post_step":
+            this.postStep();
+            break;
         default:
           console.error("Invalid event:", event);
       }
