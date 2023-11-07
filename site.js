@@ -11,8 +11,6 @@ class Site extends NetworkGroup {
         this.vms = {};
         this.vmhosts = {};
         this.switches = {};
-        this.fas = {};
-        this.hostEntires = {};
 
         let fa = new FlashArray(name+"fa1");
         this.fa = fa;
@@ -50,7 +48,6 @@ class Site extends NetworkGroup {
         this.FCswitch1 = FCswitch1;
         this.FCswitch2 = FCswitch2;
         VMWareGroup.addChildren([FCswitch1, FCswitch2]);
-        this.switches[FCswitch2.name] = FCswitch2; 
 
         FCswitch1.createConnection(vmhost.ports[0]);
         FCswitch2.createConnection(vmhost.ports[1]);
@@ -128,9 +125,6 @@ class CloudSite extends NetworkGroup {
         this.addChild(this.cloudSwitch);
     }
 
-
-
-
 }
 
 class MultiSite extends NetworkGroup {
@@ -138,23 +132,14 @@ class MultiSite extends NetworkGroup {
         super(name);
         this.wans = [];
         this.wanLatency = wanLatency
-
        
         let site1 = new Site("site1");
         this.site1 = site1;
-        //site1.layout['x'] = 0;
-        //site1.layout['y'] = 0;
 
         let site2 = new Site("site2");
         this.site2 = site2;
-        //site1.layout['x'] = 50;
-        //site1.layout['y'] = 0;
-        //site2.layout['x'] = {x: 50, y: 0}
 
         let site3 = new CloudSite("site3");
-        //site3.layout['x'] = {x: 25, y: 80}
-
-
     
         this.pods = {};
         
@@ -262,8 +247,8 @@ class MultiSite extends NetworkGroup {
             return;
         }
 
-       this.hostEntry2.addPreferredArray(this.site1.fa);
-       this.hostEntry3.addPreferredArray(this.site2.fa);
+       this.hostEntry2.addPreferredArray(this.site2.fa.name);
+       this.hostEntry3.addPreferredArray(this.site1.fa.name);
     }
 
     setPodFailoverPreference(array) {

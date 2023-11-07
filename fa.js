@@ -96,18 +96,21 @@ class HostEntry {
   }
 
   //add preferred array
-  addPreferredArray(array) {
-    this.preferredArrays[array.id] = array;
+  addPreferredArray(arrayName) {
+    this.preferredArrays[arrayName] = true;
   }
 
-  removePreferredArray(array) {
-    delete this.preferredArrays[array.id];
+  removePreferredArray(arrayName) {
+    delete this.preferredArrays[arrayName];
   }
 
   isPathOptimized(arrayName) {
     let optimized = true;
+    let arrayInPreferred = this.preferredArrays.hasOwnProperty(arrayName);
     // if the length of prefferedArrays is more than 0 and we are not in it, then we are not optimized
-    if (Object.keys(this.preferredArrays).length > 0 && !this.preferredArrays.hasOwnProperty(arrayName)) {
+    if (Object.keys(this.preferredArrays).length == 0) {
+      optimized = true; 
+    } else if (!arrayInPreferred) {
       optimized = false;
     }
     return optimized;
