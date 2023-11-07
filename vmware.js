@@ -25,6 +25,28 @@ class Datastore {
         this.state = "online";
     }
 
+    jsonStatus() {
+        let status = {
+            name: this.name,
+            isOnline: this.isOnline(),
+            apd: this.apd,
+            pdl: this.pdl,
+            //display all paths
+            paths: this.paths.map(p => {
+                return {
+                    srcPort: p.srcPort.name,
+                    dst: p.dst,
+                    dstPort: p.dstPort,
+                    optimized: p.optimized,
+                    ready: p.ready,
+                    online: p.online
+                };
+            })
+        };
+
+        return status;
+    }
+
     updatePath(volume, srcPort, packet) {
         //check to see if path exists and update it
         //must match srcPort, packet.src, packet.srcPort 
@@ -130,6 +152,15 @@ class Target {
         this.target = target.toLowerCase();
         this.targetPort = targetPort.toLowerCase();
     }
+    
+    jsonStatus() {
+        let status = {
+            target: this.target,
+            targetPort: this.targetPort
+        };
+
+        return status;
+    }
 }
 
 class VMHost extends NetworkDevice {
@@ -143,6 +174,19 @@ class VMHost extends NetworkDevice {
         this.vms = [];
         this.datastores = [];
         this.enableAPDPDL = false;
+    }
+
+    jsonStatus(){
+        let status = {
+            name: this.name,
+            isOnline: this.isOnline(),
+            //display all paths
+            datastores: this.datastores.map(d => d.jsonStatus()),
+            targets: this.targets.map(t => {t.jsonStatus()}),
+            //vms: this.vms.map(v => {v.jsonStatus()})
+        };
+
+        return status;
     }
 
     receivePacketFromPort(packet, srcPort) {
@@ -250,18 +294,37 @@ class VMHost extends NetworkDevice {
 let vmStates = ["off", "powering_on", "running", "suspended"];
 
 class VM {
-    constructor(name, hosts, datastoreName) {
+    constructor(name, hosts, datastoreName, offgroup) {
         this.name = name.replace(/\s+/g, "_").toLowerCase();
         this.hosts = hosts; //send in order or preference
         this.datastoreName = datastoreName.toLowerCase();
+        this.offgroup = offgroup;
+        this.offgroup.addChild(this);
         
         this.currentHost = null;
         this.datastoreObj = null;
         this.state = "off";
         this.read_latency = "unknown";
         this.write_latency = "unknown";
+        this.read_latency_max = 0;
+        this.write_lateny_max = 0;
         this.read_latencies = [];
         this.write_latencies = [];
+    }
+
+    jsonStatus() {
+        let status = {
+            name: this.name,
+            state: this.state,
+            currentHost: this.currentHost ? this.currentHost.name : "none",
+            datastore: this.datastoreName,
+            read_latency: this.read_latency,
+            read_latency_max: this.read_latency_max,
+            write_latency: this.write_latency,
+            write_latency_max: this.write_latency_max
+        };
+
+        return status;
     }
 
     removeFromVMHost() {
@@ -276,7 +339,9 @@ class VM {
             case "power_off":
                 this.state = "off";
                 this.removeFromVMHost();
-
+                if (this.offgroup) {
+                    this.offgroup.addChildren([this]);
+                }
                 break;
             case "power_on":
                 this.state = "booting";
@@ -295,20 +360,30 @@ class VM {
 
         //average all entries in the read_latencies array and store in read_latency
         let sum = 0;
+        this.read_latency_max = 0;
         for (let latency of this.read_latencies) {
             sum += latency;
+            if(this.read_latency_max < latency) {
+                this.read_latency_max = latency;
+            }
         }
         this.read_latency = sum / this.read_latencies.length;
         //round to 1 decimal place
         this.read_latency = Math.round(this.read_latency * 10) / 10;
+        
     }
 
     writeAck(packet) {
         this.write_latencies.push(packet.cumulativeLatency);
         //average all entries in the write_latencies array and store in write_latency
         let sum = 0;
+        this.write_lateny_max = 0
         for (let latency of this.write_latencies) {
             sum += latency;
+            
+            if(this.write_latency_max < latency) {
+                this.write_latency_max = latency;
+            }
         }
         
         this.write_latency = sum / this.write_latencies.length;

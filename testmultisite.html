@@ -12,6 +12,9 @@
 <script src="ac.js"></script>
 <script src="cvis.js"></script>
 <script src="https://unpkg.com/cytoscape@3.17.2/dist/cytoscape.min.js"></script>
+<script src='https://unpkg.com/vanilla-jsoneditor/index.js'>    </script>
+
+
 
 <style>
     #output {
@@ -73,10 +76,27 @@
 
 <div id="logWindow"></div>
 <div id="cy"></div>
+<div id="jsoneditor"></div>
+<script  type="module">
+ import { JSONEditor } from 'https://unpkg.com/vanilla-jsoneditor/index.js'
+        /*let content = {
+            text: undefined,
+            json: {
+                greeting: 'Hello World' 
+            }
+        }*/
 
+        const editor = new JSONEditor({
+            target: document.getElementById('jsoneditor')
+        })
+
+        window.editorSet = (content) => editor.set(content);
+</script>
 
 <script>
+   
     let site;
+    
 
     function log(message) {
         const logWindow = document.getElementById('logWindow');
@@ -85,17 +105,16 @@
     }
 
     function initializeSite() {
+
+        
+
         site = new MultiSite("Test Site", document.getElementById('wanlatency').value);
         updateVisualization(site);  // Add this line
         //do 1 step to initialize the site
-        site.fullStep();
-        updateVisualization(site);  // Add this line
-        site.fullStep();
-        updateVisualization(site);  // Add this line
-        site.fullStep();
-        updateVisualization(site);  // Add this line
-        site.fullStep();
-        updateVisualization(site);  // Add this line
+        step();
+        step();
+        step();
+        step();
         
         //log("site initialized");
         //updateOutput("Site Initialized");
@@ -104,6 +123,11 @@
     function step() {
         site.fullStep();
         updateVisualization(site);  // Add this line
+        let currentjsonState = site.jsonStatus();
+        //content.json = currentjsonState;  
+        if (window.editorSet) {
+            window.editorSet({json: currentjsonState});
+        }
         //log("Step Executed");
     }
 

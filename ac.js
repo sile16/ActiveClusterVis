@@ -195,6 +195,19 @@ class PodArrayStates {
         this.state_timer_thresholds["pre-elect"] = 2;
     }
 
+    jsonStatus() {
+        return {
+            "array": this.array.name,
+            "state": this.state,
+            "fa_connected": this.fa_connected,
+            //"isForwarding": this.parent.isFowarding(this.array),
+            "mediator_connected": this.mediator_connected ? "connected" : "unreachable",
+            "preElected": this.preElected,
+            "elected": this.elected,
+        }
+    }
+
+
     incrementTimerisDone(timer = this.state) {
         //check if state is in dictionary, and it's a number
         if (!(timer in this.state_timers) || typeof this.state_timers[timer] !== "number") {
@@ -228,6 +241,17 @@ class ActiveClusterPod extends NetworkDevice {
         this.stetched = false;
         this.failoverPreference = null;
         this.mediation_request_id = 0;  // increment for each mediation response.
+    }
+
+    jsonStatus() {
+        return {
+            "name": this.name,
+            "isStretched": this.isStretched(),
+            "mediator": this.mediator.name,
+            "volumes": this.volumes,
+            //iterate arrays_state and call object jsonStatus
+            "array_states": Object.keys(this.array_states).map(key => this.array_states[key].jsonStatus()),
+        }
     }
 
     isFowarding(faControllerObj) {

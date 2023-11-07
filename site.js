@@ -94,6 +94,13 @@ class Site extends NetworkGroup {
         
     }
 
+    jsonStatus() {
+        let status = {};
+        status["fa"] = this.fa.jsonStatus();
+        status["vmhost"] = this.vmhost.jsonStatus();
+        return status;
+    }
+
     addRepCrossover() {
         //replication switches also have a local crossover connection
         this.replicationSwitch1.createSwitchConnection(this.replicationSwitch2);
@@ -169,12 +176,14 @@ class MultiSite extends NetworkGroup {
         //create vm on the pod DS
         site1.hostEntry.addVolume("pod1::podDS1");
         site2.hostEntry.addVolume("pod1::podDS1");
-        this.VM = new VM("podvm1", [site1.vmhost, site2.vmhost], "pod1::podDS1");
-        this.VM.handleAction("power_on");
+        
     
         // Create Powered Off VM's Group
         let poweredOffVMsGroup = new NetworkGroup("Powered Off VMs");
-        poweredOffVMsGroup.addChildren([this.VM]);
+        this.VM = new VM("podvm1", [site1.vmhost, site2.vmhost], "pod1::podDS1", poweredOffVMsGroup);
+        this.VM.handleAction("power_on");
+        this.vms = [this.VM];
+       
         this.addChild(poweredOffVMsGroup);
         this.poweredOffVMsGroup = poweredOffVMsGroup;
 
@@ -188,6 +197,15 @@ class MultiSite extends NetworkGroup {
 
         this.hostEntry2 = null;
         this.hostEntry3 = null; 
+    }
+
+    jsonStatus() {
+        let status = {};
+        status["site1"] = this.site1.jsonStatus();
+        status["site2"] = this.site2.jsonStatus();
+        status["pod"] = this.pod.jsonStatus();
+        status["vm"] = this.VM.jsonStatus();
+        return status;
     }
 
     step() {
@@ -229,7 +247,7 @@ class MultiSite extends NetworkGroup {
         this.hostEntry3 = new HostEntry(this.site2.fa, this.site1.vmhost.name);
         this.hostEntry3.addVolume("pod1::podDS1");
 
-        //add Targets:
+        //add Targets to VMWare Hosts so they discover the new paths
         this.site1.vmhost.targets.push(new Target(this.site2.fa.ct0.name, "fc0"));
         this.site1.vmhost.targets.push(new Target(this.site2.fa.ct0.name, "fc1"));
         this.site1.vmhost.targets.push(new Target(this.site2.fa.ct1.name, "fc0"));

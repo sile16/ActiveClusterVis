@@ -57,7 +57,18 @@ class NetworkGroup extends NetworkDevice {
        this.children = [];  
     }
 
+    removeChild(child) {
+        let index = this.children.indexOf(child);
+        if (index > -1) {
+            this.children.splice(index, 1);
+            child.parent = "";
+        }
+    }
+
     addChild(child) {
+        if(child.parent) {
+            child.parent.removeChild(child);
+        }
         this.children.push(child);
         child.parent = this;
     }

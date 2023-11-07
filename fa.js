@@ -34,6 +34,17 @@ class FlashArray extends NetworkGroup {
     this.addChild(this.ct0);
     this.addChild(this.ct1);
   }
+
+  jsonStatus() {
+    return {
+      name: this.name,
+      state: this.state,
+      isOnline: this.isOnline(),
+      hostEntries: Object.values(this.hostEntries).map(h => h.jsonStatus()),
+      CT0: this.ct0.jsonStatus(),
+      CT1: this.ct1.jsonStatus(),
+    };
+  }
     
   handleAction(action) {
     if (action !== "promote" ) {
@@ -71,6 +82,14 @@ class HostEntry {
     this.volumes = [];
     this.preferredArrays = {};
     this.fa.hostEntries[host] = this;  
+  }
+
+  jsonStatus() {
+    return {
+      host: this.host,
+      volumes: this.volumes,
+      preferredArrays: Object.keys(this.preferredArrays),
+    };
   }
 
   //add volumes
@@ -138,6 +157,15 @@ class FlashArrayController extends NetworkDevice {
     this.ports["mgmt0"] = new Port("mgmt0", this, (packet, port) => this.receivePacketFromPortMgmt(packet, port));
     this.ports["mgmt1"] = new Port("mgmt1", this, (packet, port) => this.receivePacketFromPortMgmt(packet, port));
   }
+
+  jsonStatus() {
+    return {
+      name: this.name,
+      state: this.state,
+      isOnline: this.isOnline()
+    };
+  }
+
 
   isOnline()  {
     return this.state !== "failed";
