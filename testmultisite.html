@@ -28,38 +28,38 @@
 </head>
 <body>
 
-<h1>State Machine Interface</h1>
+    <h1>Active Cluster Simulator</h1>
+    <!--Add WAN Latency Input-->
+    <label for="wanlatency">WAN Latency RTT (ms):</label>
+    <input oninput="site.setWANLatency(this.value)" type="text" id="wanlatency" name="wanlatency" value="3">
 
-<button onclick="initializeSite()">Initialize Site</button>
-<button onclick="step()">Step</button>
-<br><br>
 
-<label for="events">Select Event:</label>
+    <button onclick="site.addRepCrossover();step()">Add Replication Switch Crossover</button>
+    <button onclick="site.addFCCrossover();step()">Add Uniform Connections</button>
+    <button onclick="site.setPreferredArray();step()">Set Preferred Array in Host Entry</button>
+    <button onclick="site.setPodFailoverPreference(document.getElementById('podfailover').value);step()">Set Pod Failover Preference</button>
+    <select id="podfailover">
+        <option value="none">None</option>
+        <option value="site1fa1">site1fa1</option>
+        <option value="site2fa1">site2fa1</option>
+    </select>
+    <button onclick="site.enableAPDPDL()">Enable VMWare APD/PDL</button>
+    
+    
+    <br><br>
+    
+
+<label for="events">Mouse Click Event:</label>
 <select id="events">
     <!-- Common events can remain hardcoded or be dynamically generated as well -->
     <option value="fail">Fail</option>
     <option value="recover">Recover</option>
-    <option value="promote">Promote</option>
-    <option value="power_on">Power On</option>
-    <option value="power_off">Power Off</option>
-    <option value="reboot">Reboot</option>
-</select>
-<br><br>
-
-
-<label for="objects">Select Object:</label>
-<select id="objects"></select>
-<br><br>
-
-<button onclick="handleObjectAction()">Handle Object Event</button>
-<br><br>
-
-
-<label for="connections">Select Connection:</label>
-<select id="connections"></select>
-<br><br>
-
-<button onclick="handleConnectionAction()">Handle Connection Event</button>
+    <option value="promote">Promote (FA Controllers Only)</option>
+    <option value="power_on">Power On (VM Only)</option>
+    <option value="power_off">Power Off (VM Only)</option>
+    <option value="reboot">Reboot (VM Only)</option>
+</select> add step after click <input type="checkbox" id="clickstep" name="step" value="step" checked>
+<button onclick="step()">Step</button>
 <br><br>
 
 <div id="cy"></div>
@@ -68,10 +68,8 @@
     let site;
 
     function initializeSite() {
-        site = new MultiSite("Test Site");
+        site = new MultiSite("Test Site", document.getElementById('wanlatency').value);
         updateVisualization(site);  // Add this line
-        populateObjectsDropdown();
-        populateConnectionsDropdown();
         //do 1 step to initialize the site
         site.fullStep();
         updateVisualization(site);  // Add this line
@@ -86,61 +84,13 @@
         //updateOutput("Site Initialized");
     }
 
-    function populateObjectsDropdown() {
-        const objectsDropdown = document.getElementById('objects');
-        objectsDropdown.innerHTML = '';  // Clear existing options
-
-        // Assuming each site in MultiSite has an allObjects array
-
-        for (let objectName in site.allObjects) {
-            const option = document.createElement('option');
-            option.value = objectName;  // Set value to object name
-            option.text = objectName;  // Set text to object name
-            objectsDropdown.add(option);
-        }
-    }
-
-    function populateConnectionsDropdown() {
-        const connectionsDropdown = document.getElementById('connections');
-        connectionsDropdown.innerHTML = '';  // Clear existing options
-
-        // Assuming globalAllConnections is globally accessible
-        for (let connectionName in globalAllConnections) {
-            const option = document.createElement('option');
-            // Assuming each connection has a unique identifier property
-            option.value = connectionName;  
-            option.text = connectionName;  
-            connectionsDropdown.add(option);
-        }
-    }
-
     function step() {
         site.fullStep();
         updateVisualization(site);  // Add this line
         //console.log("Step Executed");
     }
 
-    function handleObjectAction() {
-        const objectName = document.getElementById('objects').value;
-        const eventName = document.getElementById('events').value;
-        if(site.allObjects[objectName] && site.allObjects[objectName].handleAction) {
-            site.allObjects[objectName].handleAction(eventName);
-            console.log(`${objectName} handled event: ${eventName}`);
-        } else {
-            console.log('Invalid object or event');
-        }
-    }
-
-    function handleConnectionAction() {
-        const connectionName = document.getElementById('connections').value;
-        const eventName = document.getElementById('events').value;
-        if(globalAllConnections[connectionName] && globalAllConnections[connectionName].handleAction) {
-            globalAllConnections[connectionName].handleAction(eventName);
-            console.log(`${connectionName} handled event: ${eventName}`);
-        } else {
-            console.log('Invalid connection or event');
-        }
-    }
+    
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeSite();

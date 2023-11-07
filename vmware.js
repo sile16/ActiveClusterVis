@@ -142,6 +142,7 @@ class VMHost extends NetworkDevice {
         
         this.vms = [];
         this.datastores = [];
+        this.enableAPDPDL = false;
     }
 
     receivePacketFromPort(packet, srcPort) {
@@ -217,26 +218,28 @@ class VMHost extends NetworkDevice {
         this.getPaths();
         //todo: check for APD and PDL, and after set delay restart VMs
         //
-        for (let datastore of this.datastores) {
-            datastore.checkAPDPDL();
-            if (datastore.apd === 5) {
-                console.log("VM Host [" + this.name + "] APD detected on Datastore [" + datastore.name + "]");
-                //"restart all VMs on this datastore"
-                for (let vm of this.vms) {
-                    if (vm.datastoreName === datastore.name) {
-                        vm.handleAction("restart");
+        if (this.enableAPDPDL) {
+            for (let datastore of this.datastores) {
+                datastore.checkAPDPDL();
+                if (datastore.apd === 5) {
+                    console.log("VM Host [" + this.name + "] APD detected on Datastore [" + datastore.name + "]");
+                    //"restart all VMs on this datastore"
+                    for (let vm of this.vms) {
+                        if (vm.datastoreName === datastore.name) {
+                            vm.handleAction("restart");
+                        }
+                    }
+
+                } else if (datastore.pdl === 5) {
+                    console.log("VM Host [" + this.name + "] PDL detected on Datastore [" + datastore.name + "]");
+                    for (let vm of this.vms) {
+                        if (vm.datastoreName === datastore.name) {
+                            vm.handleAction("restart");
+                        }
                     }
                 }
 
-            } else if (datastore.pdl === 5) {
-                console.log("VM Host [" + this.name + "] PDL detected on Datastore [" + datastore.name + "]");
-                for (let vm of this.vms) {
-                    if (vm.datastoreName === datastore.name) {
-                        vm.handleAction("restart");
-                    }
-                }
             }
-
         }
     }
 

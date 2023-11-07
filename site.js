@@ -41,7 +41,7 @@ class Site extends NetworkGroup {
         //this.vms[vm.name] = vm;
 
         let hostEntry = new HostEntry(fa, vmhost.name);
-        hostEntry.addVolume(volumeName); 
+        //hostEntry.addVolume(volumeName); 
         this.hostEntry = hostEntry;
         //this.hostEntries[hostEntry.name] = hostEntry;
         
@@ -92,10 +92,14 @@ class Site extends NetworkGroup {
         replicationSwitch2.createConnection(fa.ct1.ports['rep1']);
 
 
-        //replication switches also have a local crossover connection
-        replicationSwitch1.createSwitchConnection(replicationSwitch2);
+        
 
         
+    }
+
+    addRepCrossover() {
+        //replication switches also have a local crossover connection
+        this.replicationSwitch1.createSwitchConnection(this.replicationSwitch2);
     }
  
     preStep() {
@@ -125,18 +129,24 @@ class CloudSite extends NetworkGroup {
     }
 
 
+
+
 }
 
 class MultiSite extends NetworkGroup {
-    constructor(name, rep_cross_connect, uniform) {
+    constructor(name, wanLatency=3) {
         super(name);
+        this.wans = [];
+        this.wanLatency = wanLatency
 
        
         let site1 = new Site("site1");
+        this.site1 = site1;
         //site1.layout['x'] = 0;
         //site1.layout['y'] = 0;
 
         let site2 = new Site("site2");
+        this.site2 = site2;
         //site1.layout['x'] = 50;
         //site1.layout['y'] = 0;
         //site2.layout['x'] = {x: 50, y: 0}
@@ -155,8 +165,8 @@ class MultiSite extends NetworkGroup {
         site3.cloudSwitch.createSwitchConnection(site2.mgmtswitch2);
 
         //create cross connect between replication switches
-        site1.replicationSwitch1.createSwitchConnection(site2.replicationSwitch1, 2, 10);
-        site1.replicationSwitch2.createSwitchConnection(site2.replicationSwitch2, 2, 10);
+        this.wans.push(site1.replicationSwitch1.createSwitchConnection(site2.replicationSwitch1, this.wanLatency/2, 10));
+        this.wans.push(site1.replicationSwitch2.createSwitchConnection(site2.replicationSwitch2, this.wanLatency/2, 10));
 
         //create pod
         let pod = new ActiveClusterPod("pod1", site3.mediator, site3.mediator.ports[0]);
@@ -190,6 +200,9 @@ class MultiSite extends NetworkGroup {
         
         this.addChildren([site1, site2, site3]);
         this.addChildren([podGroup, poweredOffVMsGroup]);
+
+        this.hostEntry2 = null;
+        this.hostEntry3 = null; 
     }
 
     step() {
@@ -211,5 +224,67 @@ class MultiSite extends NetworkGroup {
        
     }
 
-  
+    addRepCrossover(){
+        this.site1.addRepCrossover();
+        this.site2.addRepCrossover();
+    }
+
+    addFCCrossover() {
+        if(this.hostEntry2 ){
+            return;
+        }
+
+        this.wans.push(this.site1.FCswitch1.createSwitchConnection(this.site2.FCswitch1, this.wanLatency/2));
+        this.wans.push(this.site1.FCswitch2.createSwitchConnection(this.site2.FCswitch2, this.wanLatency/2));
+
+        //we need host entries for these:
+        this.hostEntry2 = new HostEntry(this.site1.fa, this.site2.vmhost.name);
+        this.hostEntry2.addVolume("pod1::podDS1");
+
+        this.hostEntry3 = new HostEntry(this.site2.fa, this.site1.vmhost.name);
+        this.hostEntry3.addVolume("pod1::podDS1");
+
+        //add Targets:
+        this.site1.vmhost.targets.push(new Target(this.site2.fa.ct0.name, "fc0"));
+        this.site1.vmhost.targets.push(new Target(this.site2.fa.ct0.name, "fc1"));
+        this.site1.vmhost.targets.push(new Target(this.site2.fa.ct1.name, "fc0"));
+        this.site1.vmhost.targets.push(new Target(this.site2.fa.ct1.name, "fc1"));
+
+        this.site2.vmhost.targets.push(new Target(this.site1.fa.ct0.name, "fc0"));
+        this.site2.vmhost.targets.push(new Target(this.site1.fa.ct0.name, "fc1"));
+        this.site2.vmhost.targets.push(new Target(this.site1.fa.ct1.name, "fc0"));
+        this.site2.vmhost.targets.push(new Target(this.site1.fa.ct1.name, "fc1"));
+
+    }
+
+    setPreferredArray() {
+        if(!this.hostEntry2 ){
+            return;
+        }
+
+       this.hostEntry2.addPreferredArray(this.site1.fa);
+       this.hostEntry3.addPreferredArray(this.site2.fa);
+    }
+
+    setPodFailoverPreference(array) {
+        this.pod.setFailoverPreference(array);
+    }
+
+    enableAPDPDL() {
+        this.site1.vmhost.enableAPDPDL = true;
+        this.site2.vmhost.enableAPDPDL = true;    
+    }
+
+    setWANLatency(latency) {
+        //check if latency is numeric
+        if (isNaN(latency)) {
+            return;
+        }
+
+
+        this.wanLatency = Number(latency)/2;
+        for (let wan of this.wans) {
+            wan.latency = this.wanLatency;
+        }
+    }
 }

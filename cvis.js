@@ -345,6 +345,13 @@ function handleNodeClick(nodeId, eventName) {
             }
             cy.style().update();
         }
+
+        //check if id "clickstep"  is checked. 
+        //if so, call step on all objects
+        if(document.getElementById('clickstep').checked) {
+            step();
+        }
+
     } else {
         console.log('Invalid node or event');
     }
@@ -352,6 +359,9 @@ function handleNodeClick(nodeId, eventName) {
 
 function handleEdgeClick(edgeId, eventName) {
     globalAllConnections[edgeId].handleAction(eventName);
+    if(document.getElementById('clickstep').checked) {
+        step();
+    }
 }
 
 function adjustParentBoundingBox(parent) {

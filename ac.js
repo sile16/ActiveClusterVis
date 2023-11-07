@@ -26,9 +26,10 @@ class MediationRequest {
 }
 
 class MediationState {
-    constructor(name, requestId) {
+    constructor(name, requestId, failoverPreference) {
         this.name = name;
         this.mediation_requests = {};
+        this.failoverPreference = failoverPreference;
         this.heardFrom = [];
         this.rejectQueue = [];
         this.requestId = requestId;
@@ -100,10 +101,13 @@ class Mediator extends NetworkDevice {
             //if failover preference is set, then winner is faill over preference
             if (request.failoverPreference) {
                 medState.decision = request.failoverPreference;
+                console.log(" [Mediator] Pod [" + medState.name + "] array ["+medState.decision+"] won by failover preference [" + medState.failoverPreference + "]")
                 return;
             } else {
                 //if not set, then winner is picked at random
                 medState.decision = medState.heardFrom[Math.floor(Math.random() * medState.heardFrom.length)];
+                console.log(" [Mediator] Pod [" + medState.name + "] array ["+medState.decision+"] won by random [" + medState.failoverPreference + "]")
+                
                 return;
             }
         }
@@ -113,9 +117,12 @@ class Mediator extends NetworkDevice {
                 if(medState.failoverPreference === medState.heardFrom[0]) {
                     //We have winner
                     medState.decision = medState.heardFrom[0];
+                    console.log(" [Mediator] Pod [" + medState.name + "] array ["+medState.decision+"] won by first & failover preference  [" + medState.failoverPreference + "]")
+                
                 }
                 else if (medState.timeSinceRequest > this.failoverPreferenceOverride) {
                     medState.decision = medState.heardFrom[0];
+                    console.log(" [Mediator] Pod [" + medState.name + "] array ["+medState.decision+"] won by only response, overriding failover preference  [" + medState.failoverPreference + "]")
                 }
             }
             else {
@@ -133,7 +140,7 @@ class Mediator extends NetworkDevice {
             let medState = this.mediation_states[request.podName];
             
             if(!medState) {
-                medState = new MediationState(request.podName, request.requestId);
+                medState = new MediationState(request.podName, request.requestId, request.failoverPreference);
                 this.mediation_states[request.podName] = medState;
             }
 
@@ -376,8 +383,8 @@ class ActiveClusterPod extends NetworkDevice {
         this.volumes.push(volumeName);
     }
 
-    addFailoverPreference(array) {
-        this.failoverPreference = array.name;
+    setFailoverPreference(arrayName) {
+        this.failoverPreference = arrayName
     }
 
     removeFailoverPreference() {
