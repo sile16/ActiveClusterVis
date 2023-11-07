@@ -201,10 +201,12 @@ class MultiSite extends NetworkGroup {
 
     jsonStatus() {
         let status = {};
+        status["vm"] = this.VM.jsonStatus();
+        status["pod"] = this.pod.jsonStatus();
         status["site1"] = this.site1.jsonStatus();
         status["site2"] = this.site2.jsonStatus();
-        status["pod"] = this.pod.jsonStatus();
-        status["vm"] = this.VM.jsonStatus();
+        
+        
         return status;
     }
 

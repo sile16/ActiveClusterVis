@@ -87,7 +87,11 @@
         }*/
 
         const editor = new JSONEditor({
-            target: document.getElementById('jsoneditor')
+            target: document.getElementById('jsoneditor'),
+            props: {
+                readonly:true
+            }
+           
         })
 
         window.editorSet = (content) => editor.set(content);
