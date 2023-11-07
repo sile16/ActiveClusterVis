@@ -37,8 +37,8 @@ class Site extends NetworkGroup {
         this.addChild(VMWareGroup);
         VMWareGroup.addChildren(vmhostList);
 
-        let vm = new VM(name + "vm1", vmhostList, volumeName);
-        this.vms[vm.name] = vm;
+        //let vm = new VM(name + "vm1", vmhostList, volumeName);
+        //this.vms[vm.name] = vm;
 
         let hostEntry = new HostEntry(fa, vmhost.name);
         hostEntry.addVolume(volumeName); 
@@ -94,15 +94,6 @@ class Site extends NetworkGroup {
 
         //replication switches also have a local crossover connection
         replicationSwitch1.createSwitchConnection(replicationSwitch2);
-
-        
-        vm.handleAction("power_on");
-        if(parent) {
-            parent.addChild(vm);
-        } else {
-            this.addChild(vm);
-        }
-
 
         
     }
@@ -178,13 +169,13 @@ class MultiSite extends NetworkGroup {
         let podGroup = new NetworkGroup("ActiveCluster Pods");
         podGroup.addChildren([pod]);
         this.podGroup = podGroup;
-        
+
 
         //create vm on the pod DS
         site1.hostEntry.addVolume("pod1::podDS1");
+        site2.hostEntry.addVolume("pod1::podDS1");
         this.VM = new VM("podvm1", [site1.vmhost, site2.vmhost], "pod1::podDS1");
         this.VM.handleAction("power_on");
-        
     
         // Create Powered Off VM's Group
         let poweredOffVMsGroup = new NetworkGroup("Powered Off VMs");

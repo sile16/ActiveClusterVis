@@ -1,7 +1,8 @@
+//fa.js
 //define a path object has, host, volume, array, controller, port,
 class VolumeEntry {
   constructor(name, optimized, ready) {
-    this.name = name.replace(/\s+/g, "_").toLowerCase();;
+    this.name = name.replace(/\s+/g, "_").toLowerCase();
     this.optimized = optimized;
     this.ready = ready;
   }
@@ -15,7 +16,7 @@ class IO {
 }
 
 class FlashArray extends NetworkGroup {
-  constructor(name, hostConnectivity = "FC", acConnetivity = "ETH") {
+  constructor(name, hostConnectivity = "FC", acConnectivity = "ETH") {
     super(name);
     this.ct0 = new FlashArrayController(`${name}-ct0`, this);
     this.ct1 = new FlashArrayController(`${name}-ct1`, this);
@@ -29,7 +30,7 @@ class FlashArray extends NetworkGroup {
     this.write_latency = 0.2;
     this.pods = {};
     this.hostConnectivity = hostConnectivity;
-    this.acConnetivity = acConnetivity;
+    this.acConnectivity = acConnectivity;
     this.addChild(this.ct0);
     this.addChild(this.ct1);
   }
@@ -40,7 +41,7 @@ class FlashArray extends NetworkGroup {
     }
   }
 
-  handleControllerEvent(controllerName, action) {
+  handleControllerAction(controllerName, action) {
       if (controllerName === 'CT0') {
           this.ct0.handleAction(action);
       } else if (controllerName === 'CT1') {
@@ -157,12 +158,36 @@ class FlashArrayController extends NetworkDevice {
     return null;
   }
 
-  isVolumeAvailable(volume) {
-    let pod = this.getVolumePod(volume);
-    if (pod) {
-      return pod.isOnline(this.fa.name);
+  getPodByVolume(volume) {
+    //make sure "::" is in name:
+    if (!volume.includes("::")) {
+        return false;
     }
-    return true;
+
+    let podName = volume.split("::")[0];
+    //check that podName is on this array:
+    if (!(podName in this.fa.pods)) {
+        console.log("Pod not on this array");
+        return false;
+    }
+
+    let podObj = this.fa.pods[podName];
+    //check if volume is in pod:
+    if (!podObj.containsVolume(volume)) {
+        console.log("Volume not in pod");
+        return false;
+    }
+
+    return podObj
+  }
+
+  isVolumeAvailable(volume) {
+    let pod = this.getPodByVolume(volume);
+    if (pod) {
+      return pod.isVolumeAvailable(volume, this.fa.name);
+    }
+    // if at least either controller is primary, then the volume is available
+    return this.fa.ct0.state === "primary" || this.fa.ct1.state === "primary";
   }
 
   checkHostVolumeAccess(host, volume){
@@ -212,20 +237,20 @@ class FlashArrayController extends NetworkDevice {
         //create response packet
         packet.addRoute(this, 0);
         srcPort.sendResponsePacket(packet, "volumes", volumes);
-        return true;
+        return false;
 
       }
-      else if (packet.message == "write") {
+      else if (packet.message === "write") {
           let volume_name = packet.data.volume;
 
           //check host volume access
           if (!this.checkHostVolumeAccess(packet.src, volume_name)) {
-            return true;
+            return false;
           }
 
           //check if volume is available.
           if (!this.isVolumeAvailable(volume_name)) {
-            return true;
+            return false;
           }
 
           packet.addRoute(this, this.fa.write_latency);
@@ -237,16 +262,16 @@ class FlashArrayController extends NetworkDevice {
           }
               
         }
-      else if (packet.message == "read") {
+      else if (packet.message === "read") {
           let volume_name = packet.data.volume;
 
           //check host volume access
           if (!this.checkHostVolumeAccess(packet.src, volume_name)) {
-            return true;
+            return false;
           }
           //check if volume is available.
           if (!this.isVolumeAvailable(volume_name)) {
-            return true;
+            return false;
           }
 
           packet.addRoute(this, this.fa.read_latency);
@@ -334,6 +359,7 @@ class FlashArrayController extends NetworkDevice {
             break;
           case "ac_heartbeat":
             srcPort.sendResponsePacket(packet, "ac_heartbeat_ack", acmessage);
+            return false; //prevents dataFlowing from showing
             break;
           case "ac_heartbeat_ack":
             //if packet cumm latency is > 11 we error:
@@ -344,6 +370,7 @@ class FlashArrayController extends NetworkDevice {
             } else {
               acmessage.pod.array_states[this.fa.name].fa_connected = true;
             }
+            return false;//prevents dataFlowing
             
             break;
           default:
@@ -357,14 +384,40 @@ class FlashArrayController extends NetworkDevice {
   
       receivePacketFromPortMgmt(packet, srcPort) {
         //I don't think AC fowards packets to other controller:
-        let acmessage = packet.data;
+        let medRequest = null;
+        let states = null;
         if (this.state === "primary") {
           switch (packet.message) {
             case "ac_mediator_heartbeat_ack":
+              let acmessage = packet.data;
               acmessage.pod.array_states[this.fa.name].mediator_connected = true;
-              
               break;
-            case "ac_mediator_decision":
+
+            case "ac_mediation_won_ack":
+              medRequest = packet.data;
+              states = medRequest.podObj.array_states[this.fa.name];
+              if (medRequest.requestId === states.mediation_request_id
+                && states.state === "paused") {
+                states.mediator_won = true;
+                states.elected = true;
+                states.mediator_response = true;
+
+                medRequest.podObj.mediator_request_id += 1;
+              }
+              break;
+            
+            case "ac_mediation_lost_ack":
+              medRequest = packet.data;
+              states = medRequest.podObj.array_states[this.fa.name];
+              if (medRequest.requestId === states.mediation_request_id
+                && states.state === "paused") {
+                states.mediator_response = true;
+                states.mediator_won = false;
+                states.elected = false;
+
+                medRequest.podObj.mediator_request_id += 1 ;
+              }
+
               break;
             default:
               return false;

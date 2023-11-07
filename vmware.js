@@ -20,8 +20,8 @@ class Datastore {
         this.paths = [];
         this.read_latency = "unknown";
         this.write_latency = "unknown";
-        this.apd = false;
-        this.pdl = false;
+        this.apd = 0;
+        this.pdl = 0;
         this.state = "online";
     }
 
@@ -105,7 +105,24 @@ class Datastore {
     writeIO(vm){
         this.sendIO("write", vm );
     }
-    
+
+    checkAPDPDL() {
+        //check all paths, need to find at least 1 path this is online and ready
+        let apd = true;
+        let pdl = true;
+        for (let path of this.paths) {
+            if (path.online ) {
+                apd = false;
+            }
+
+            if (path.online && path.ready) {
+                pdl = false;
+            }
+        }
+        if(apd) {this.apd += 1;} else {this.apd = 0;}
+        if(pdl) {this.pdl += 1;} else {this.pdl = 0;}
+    }
+
  }
 
 class Target {
@@ -146,6 +163,7 @@ class VMHost extends NetworkDevice {
                 }
 
             }
+            return false;
         }
         else if (packet.message === "read_ack") {
             //update datastore read latency
@@ -155,6 +173,7 @@ class VMHost extends NetworkDevice {
                 //set datastore latency
                 datastore.readAck(packet);
             }
+            
             
             
         }
@@ -198,6 +217,27 @@ class VMHost extends NetworkDevice {
         this.getPaths();
         //todo: check for APD and PDL, and after set delay restart VMs
         //
+        for (let datastore of this.datastores) {
+            datastore.checkAPDPDL();
+            if (datastore.apd === 5) {
+                console.log("VM Host [" + this.name + "] APD detected on Datastore [" + datastore.name + "]");
+                //"restart all VMs on this datastore"
+                for (let vm of this.vms) {
+                    if (vm.datastoreName === datastore.name) {
+                        vm.handleAction("restart");
+                    }
+                }
+
+            } else if (datastore.pdl === 5) {
+                console.log("VM Host [" + this.name + "] PDL detected on Datastore [" + datastore.name + "]");
+                for (let vm of this.vms) {
+                    if (vm.datastoreName === datastore.name) {
+                        vm.handleAction("restart");
+                    }
+                }
+            }
+
+        }
     }
 
     
@@ -221,22 +261,25 @@ class VM {
         this.write_latencies = [];
     }
 
+    removeFromVMHost() {
+        if (this.currentHost){
+            this.currentHost.vms = this.currentHost.vms.filter(v => v.name !== this.name);
+        }
+        this.datastoreObj = null;
+    }
+
     handleAction(event) {
         switch (event) {
             case "power_off":
                 this.state = "off";
-                this.currentHost = null;
-                
-                this.datastoreObj = null;
+                this.removeFromVMHost();
+
                 break;
             case "power_on":
                 this.state = "booting";
                 break;
             case "restart":
                 this.state = "booting";
-                this.currentHost = null;
-                
-                this.datastoreObj = null;
                 break;
             case "step":
                 this.step();
@@ -283,6 +326,11 @@ class VM {
                 let ready_host = this.hosts.find(h => h.datastores.find(d => d.name === this.datastoreName && d.isOnline()));
                 if (ready_host) {
                     //send power on
+                    //remove me from the old homst vms
+                    if(this.currentHost) {
+                        this.currentHost.vms = this.currentHost.vms.filter(v => v.name !== this.name);
+                    }
+                    
                     this.currentHost = ready_host;
                     
 
@@ -301,14 +349,16 @@ class VM {
             case "running":
             case "suspended":
                 //check if datastore is online
-                if (!this.datastoreObj.isOnline()) {
+                
+                if (!this.datastoreObj || !this.datastoreObj.isOnline()) {
                     this.state = "suspended";
                 } else {
                     this.state = "running";
                     this.datastoreObj.readIO(this.name);
                     this.datastoreObj.writeIO(this.name);
                     //print vm latency
-                    console.log("VM [" + this.name + "] Avg read latency: " + this.read_latency + "ms all readIO [" +this.read_latencies+"], Avg write latency: " + this.write_latency + "ms all writeIO [" +this.write_latencies+"]");
+                    //console.log("VM [" + this.name + "] Avg read latency: " + this.read_latency + "ms all readIO [" +this.read_latencies+"], Avg write latency: " + this.write_latency + "ms all writeIO [" +this.write_latencies+"]");
+                    console.log("VM [" + this.name + "] Avg read latency: " + this.read_latency + "ms Avg write latency: " + this.write_latency + "ms ");
                 }
                 break;
             case "off":

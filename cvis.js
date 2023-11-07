@@ -177,7 +177,7 @@ function updateVisualization(site) {
             selector: '.NetworkGroup',
             style: {
                 'background-color': 'white',
-                'background-image-fit': 'contain',
+                'background-fit': 'contain',
                 'background-image-opacity': '0.15',
             }
         },

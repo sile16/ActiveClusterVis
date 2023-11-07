@@ -1,13 +1,4 @@
-class MediationRequest {
-    //podName, array1 time since request, array2 time since request,
-    constructor(podName, array1, array2, failoverPreference=null) {
-        this.podName = podName;
-        this.array1 = array1;
-        this.array2 = array2;
-        this.timeSinceRequest = 0;
-        this.failoverPreference = failoverPreference;
-    }
-}
+
 
 class ACMessage {
     constructor(podObj, volumeName=null, vmName=null) {
@@ -19,14 +10,43 @@ class ACMessage {
     }
 }
 
+class MediationRequest {
+    //podName, array1 time since request, array2 time since request,
+    constructor(arrayName, podObj, mediation_request_id, packet) {
+        this.arrayName = arrayName
+        this.podObj = podObj
+        this.podName = podObj.name;
+        this.failoverPreference = podObj.failoverPreference;
+        
+        this.requestId = mediation_request_id
+        this.timeSinceRequest = 0;
+        
+        this.packet = packet;
+    }
+}
+
+class MediationState {
+    constructor(name, requestId) {
+        this.name = name;
+        this.mediation_requests = {};
+        this.heardFrom = [];
+        this.rejectQueue = [];
+        this.requestId = requestId;
+        this.decision = null;
+        this.timeSinceRequest = 0;
+        this.timeSinceRequest = 0;
+    }
+}
+
 class Mediator extends NetworkDevice {
     constructor(name = "Cloud Mediator") {
         super(name);
         this.activeArray = null;
         this.ports = [new Port('eth0', this)];
-        this.delay = 2;
-        this.failoverPreferenceOverride = 5;
-        this.mediation_requests = [];
+        this.decision_delay = 2;  //normal delay for decision
+        this.failoverPreferenceOverride = 5;  
+        this.mediation_requests = [];  //dictionary by pod name,
+        this.mediation_states = {};
     }
     
     receivePacketFromPort(packet, srcPort) {
@@ -36,20 +56,9 @@ class Mediator extends NetworkDevice {
 
         } else if (packet.message === "ac_mediation_request") {
             //first check if there is an existing mediation
-            let existingRequest = this.mediation_requests.find(r => r.podName === packet.src);
-            
-            // if there is an existing request update the array response
-            if (existingRequest) {
-                if (packet.srcPort === existingRequest.array1) {
-                    existingRequest.array1 = packet.data.array1;
-                } else if (packet.srcPort === existingRequest.array2) {
-                    existingRequest.array2 = packet.data.array2;
-                }
-            } else {
-                //create a decision request
-                let request = new MediationRequest(packet.src, packet.data.array1, packet.data.array2, packet.data.failoverPreference);
-                this.mediation_requests.push(request);
-            }
+            let mediation_request = packet.data;
+            mediation_request.packet = packet;
+            this.mediation_requests.push(mediation_request);
         }
     }
 
@@ -62,22 +71,106 @@ class Mediator extends NetworkDevice {
         }
     }
 
+    sendResponse(request, medState, msg) {
+        
+        this.ports[0].sendResponsePacket(request.packet, msg, request);
+        this.mediation_requests.splice(this.mediation_requests.indexOf(request), 1);
+    }
+
+    sendWonResponse(request, medState) {
+        this.sendResponse(request, medState, "ac_mediation_won_ack");
+
+    }
+
+    sendLostResponse(request, medState) {
+        this.sendResponse(request, medState, "ac_mediation_lost_ack");
+    }
+
+    makeDecision(request, medState) {
+        if (medState.decision) {
+            return;
+        }
+
+        if (medState.timeSinceRequest < this.decision_delay) {
+            return;
+        }
+           
+        //check if all arrays have reported:
+        if (medState.heardFrom.length === 2) {
+            //if failover preference is set, then winner is faill over preference
+            if (request.failoverPreference) {
+                medState.decision = request.failoverPreference;
+                return;
+            } else {
+                //if not set, then winner is picked at random
+                medState.decision = medState.heardFrom[Math.floor(Math.random() * medState.heardFrom.length)];
+                return;
+            }
+        }
+        else {
+            //if not all arrays have reported, and we are over delay pick the winner
+            if (medState.failoverPreference) {
+                if(medState.failoverPreference === medState.heardFrom[0]) {
+                    //We have winner
+                    medState.decision = medState.heardFrom[0];
+                }
+                else if (medState.timeSinceRequest > this.failoverPreferenceOverride) {
+                    medState.decision = medState.heardFrom[0];
+                }
+            }
+            else {
+                //since there is not a fialover preference we don't have to wait, pick a winner.
+                medState.decision = medState.heardFrom[0];
+            }
+        }
+    }
+
     step() {
         //go through all mediation requests, increment the time since request and responsd if time thresholds met:
         for (let request of this.mediation_requests) {
+            
+            
+            let medState = this.mediation_states[request.podName];
+            
+            if(!medState) {
+                medState = new MediationState(request.podName, request.requestId);
+                this.mediation_states[request.podName] = medState;
+            }
+
+            //see if we have this array in heardfrom
+            if (!medState.heardFrom.includes(request.arrayName)) {
+                medState.heardFrom.push(request.arrayName);
+            }
+
+    
+
             request.timeSinceRequest += 1;
-            if (request.timeSinceRequest > this.delay) {
-                // if the array requesting is the preferred array, send back a response with the active array set to true
-                // otherwise if it's the non-preferred array wait until this.failoverPreferenceOverride and then send back a response
-
-                let responsePacket = new Packet(this.name, this.port, request.podName, request.array1, request.array2, decision);
-                this.port.sendPacket(responsePacket);
-
-                //afterwards delete the request
-                this.mediation_requests.splice(this.mediation_requests.indexOf(request), 1);
-
+            if (medState.timeSinceRequest < request.timeSinceRequest) {
+                medState.timeSinceRequest = request.timeSinceRequest;
+            }
+            
+            //if request id is lower we reject it
+            if(request.requestId < medState.requestId) {
+                this.sendLostResponse(request);
+                continue;
+            } else if (request.requestId > medState.requestId) {
+            //if request id is higher, we reset the state
+                medState = new MediationState(request.podName, request.requestId);
+                this.mediation_states[request.podName] = medState;
+            }
+            
+            //matching lets try and make a decision
+            this.makeDecision(request, medState);
+            
+            if (medState.decision) {
+               if(medState.decision === request.arrayName) {
+                    this.sendWonResponse(request, medState);
+                } else {   
+                    this.sendLostResponse(request, medState);
+                }
             }
         }
+            
     }
 }
 
@@ -96,7 +189,7 @@ class PodArrayStates {
 
     incrementTimerisDone() {
         //check if state is in dictionary, and it's a number
-        if (!(this.state in this.state_timers) || typeof this.state_timers[this.state] != "number") {
+        if (!(this.state in this.state_timers) || typeof this.state_timers[this.state] !== "number") {
             this.resetStateTimer(this.state);
         }
 
@@ -126,11 +219,8 @@ class ActiveClusterPod extends NetworkDevice {
         this.array_states = {};
         this.stetched = false;
         this.failoverPreference = null;
+        this.mediation_request_id = 0;  // increment for each mediation response.
     }
-
-
-
-    
 
     isFowarding(faControllerObj) {
         let array = faControllerObj.fa;
@@ -191,9 +281,10 @@ class ActiveClusterPod extends NetworkDevice {
         }
 
         // check lenght of arrays:
-        if (Object.keys(this.array_states).length == 0) {
+        if (Object.keys(this.array_states).length === 0) {
             this.array_states[arrayObj.name] = new PodArrayStates(arrayObj, "synced");
             this.array_states[arrayObj.name].preElected = true;
+            this.setStateSynced(arrayObj.name);
             
         } else {
 
@@ -203,10 +294,8 @@ class ActiveClusterPod extends NetworkDevice {
         //check if pod already in array;
         if (this.name in arrayObj.pods) {
             console.log("Pod already in array");
-            return;
         } else {
             arrayObj.pods[this.name] = this;
-            
         }
     }
 
@@ -248,7 +337,7 @@ class ActiveClusterPod extends NetworkDevice {
         let arrayNames = Object.keys(this.array_states);
         //iterate through arrayNames and return the array that doesn't match arrayName
         for (let name of arrayNames) {
-            if (name != arrayName) {
+            if (name !== arrayName) {
                 return this.array_states[name].array;
             }
         }
@@ -272,7 +361,7 @@ class ActiveClusterPod extends NetworkDevice {
             volumeName = this.name + "::" + volumeName;
         } else {
             let podName = volumeName.split("::")[0];
-            if ( podName != this.name ) {
+            if ( podName !== this.name ) {
                 console.log("Volume name has incorrect pod name");
                 return;
             }
@@ -294,35 +383,22 @@ class ActiveClusterPod extends NetworkDevice {
         this.failoverPreference = null;
     }
 
-    isVolumeInPod(volume) {
-        //make sure "::" is in name:
-        if (!volume.name.includes("::")) {
-            console.log("Volume name not in correct format");
-            return false;
-        }
-        let podName = volume.name.split("::")[0];
-        
-        if (podName != this.name) {
-            console.log("Volume is in different pod");
-            return false;
-        }
-
-        //check if volume is in pod:
-        if (!(volume in this.volumes)) {
-            console.log("Volume not in pod");
-            return false;
-        }
-        return true;
+    containsVolume(volume) {
+        //volume name in form of "<pod>::<volume>"
+        return this.volumes.includes(volume);
     }
 
-    isVolumeOnline(volume, array) {
+
+    isVolumeAvailable(volume, arrayName) {
         //volume name in form of "<pod>::<volume>"
         //check array state is synced:
-        if (this.isVolumeInPod(volume) && this.array_states[array.name].state != "synced") {
-            console.log("Array state not synced");
-            return false;
+        if (this.volumes.includes(volume)) {
+
+            if(this.array_states[arrayName].state === "synced") {
+                return true;
+            }
         }
-        return true;
+        return false;
     }
 
 
@@ -343,10 +419,12 @@ class ActiveClusterPod extends NetworkDevice {
         states.mediator_connected = false;
         faController.acSendData(this, "ac_heartbeat", acmessage);
         faController.acSendMed(this, "ac_mediator_heartbeat", acmessage);
+        
+        let otherArrayStates = this.getOtherArrayStates(arrayName)
 
         if (states.fa_connected) {
         //because we are connected now, we can look at the other array state to help figure out what to do:
-            let otherArrayStates = this.getOtherArrayStates(arrayName)
+            
             if (otherArrayStates.state === "synced") {
                 switch(states.state) {
                 case "added":
@@ -356,7 +434,10 @@ class ActiveClusterPod extends NetworkDevice {
                     break;
                 case "baselining":
                     if(states.incrementTimerisDone()) {
-                        states.state = "synced";
+                        
+                        this.setStateSynced(arrayName);
+                        //sync mediation request ids
+                       
                     }
                     //log
                     console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
@@ -368,7 +449,7 @@ class ActiveClusterPod extends NetworkDevice {
                     break;
 
                 case "re-syncing":
-                    states.state = "synced";
+                    this.setStateSynced(arrayName);
                     console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
                     break;
 
@@ -388,6 +469,8 @@ class ActiveClusterPod extends NetworkDevice {
                 case "paused":
                     // both were paused, i'm the first to bring things online, so i'm in sync
                     pod.array_states[arrayName].state = "synced";
+                    this.mediation_request_id += 1;  //increment so all previous mediation requests are ignored
+                    states.mediation_request_id = this.mediation_request_id; //sync mediation request ids
                     console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
                     break;
                 default:
@@ -404,22 +487,40 @@ class ActiveClusterPod extends NetworkDevice {
                         if (states.preElected) {
                             states.elected = true;
                             console.log("Array [" + arrayName + "] pod [" + this.name + "] is elected!");
+                        } else if (otherArrayStates.preElected) {
+                            states.state = "offline";
+                            console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state +":Other array was pre-elected");
                         } else {
                             states.state = "paused";
-                            console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
+                            console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state +":No pre-election");
                         }   
                     }
                     break;
                 case "paused":
                     //send mediation request
-                    let mediation_request = new MediationRequest(this);
-                    faController.acSendMed(this, "mediator_request", mediation_request);
-                    console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
-                    console.log("Array [" + arrayName + "] pod contactiing Mediator.");
+                    //check if peer is pre-elected
+
+                    let mediation_request = new MediationRequest(faController.fa.name, this, states.mediation_request_id);
+                    if (!states.mediator_response) {
+
+                        faController.acSendMed(this, "ac_mediation_request", mediation_request);
+                        console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
+                        console.log("Array [" + arrayName + "] pod contactiing Mediator.");
+                    } else if (states.mediator_won) {
+                        this.setStateSynced(arrayName);
+                        console.log("Array [" + arrayName + "] pod [" + this.name + "]  Cloud Mediation won");
+                        console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
+                    } else {
+                        states.state = "offline";
+                        console.log("Array [" + arrayName + "] pod [" + this.name + "]  Cloud Mediation lost");
+                        console.log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
+                    }
                     break;
                 
             }
         }
+        
+    
       }
 
       preElect(faController) {
@@ -427,28 +528,46 @@ class ActiveClusterPod extends NetworkDevice {
         let states = this.array_states[arrayName];
         let otherArrayStates = this.getOtherArrayStates(arrayName);
 
-        if (!states.mediator_connected && !otherArrayStates.mediator_connected && 
+        if (!states.mediator_connected && !otherArrayStates.mediator_connected ) {
+            if ( 
             !otherArrayStates.preElected && !otherArrayStates.elected && 
             !states.preElected && !states.elected) {
-            if(this.failoverPreference)
-            {
-                this.array_states[this.failoverPreference].preElected = true;
-                //log event:
-                console.log("Array [" + this.failoverPreference + "] pod [" + this.name + "] is pre-elected by Failover Prefeerence");
-            } else {
-            //pick an array at random:
-                let arrayNames = Object.keys(this.array_states);
-                let arrayName = arrayNames[Math.floor(Math.random() * arrayNames.length)];
-                this.array_states[arrayName].preElected = true;
-                console.log("Array [" + this.failoverPreference + "] pod [" + this.name + "] is pre-elected, no Failover Preference set");
+            //check if no array is pre-elected
+            
+                //find an element with preElected true in this.array_states[] with preElected set to true
+                let preElectedArray = Object.keys(this.array_states).find(key => this.array_states[key].preElected);
+                if (preElectedArray) {
+                    return; //we already have a preElected array
+                }
+                
+                if(this.failoverPreference)
+                {
+                    this.array_states[this.failoverPreference].preElected = true;
+                    //log event:
+                    console.log("Array [" + this.failoverPreference + "] pod [" + this.name + "] is pre-elected by Failover Prefeerence");
+                } else {
+                //pick an array at random:
+                    let arrayNames = Object.keys(this.array_states);
+                    let arrayName = arrayNames[Math.floor(Math.random() * arrayNames.length)];
+                    this.array_states[arrayName].preElected = true;
+                    console.log("Array [" + arrayName + "] pod [" + this.name + "] is pre-elected by random, no Failover Preference set");
+                }
             }
-        } else {
+        } else { //meaning someone has access to the mediator
             //clear preElected flag
             //clear elected flags
             this.clearElections(faController);
         }
+    }
 
-        
+    setStateSynced(arrayName) {
+        //check if all arrays are in state synced
+
+        let states = this.array_states[arrayName];
+        states.mediation_request_id = this.mediation_request_id;
+        states.mediator_response = false;
+        states.mediator_won = false;
+        states.state = "synced";
     }
 
     clearElections(faController) {
@@ -470,6 +589,9 @@ class ActiveClusterPod extends NetworkDevice {
                     //log
                     console.log("Array [" + arrayState.array.name + "] pod [" + this.name + "] is no longer elected");
                 }
+
+
+
             }
         }
     }

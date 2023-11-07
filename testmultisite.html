@@ -69,12 +69,20 @@
 
     function initializeSite() {
         site = new MultiSite("Test Site");
+        updateVisualization(site);  // Add this line
         populateObjectsDropdown();
         populateConnectionsDropdown();
         //do 1 step to initialize the site
+        site.fullStep();
+        updateVisualization(site);  // Add this line
+        site.fullStep();
+        updateVisualization(site);  // Add this line
+        site.fullStep();
+        updateVisualization(site);  // Add this line
+        site.fullStep();
         updateVisualization(site);  // Add this line
         
-        console.log("site initialized");
+        //console.log("site initialized");
         //updateOutput("Site Initialized");
     }
 
@@ -109,7 +117,7 @@
     function step() {
         site.fullStep();
         updateVisualization(site);  // Add this line
-        console.log("Step Executed");
+        //console.log("Step Executed");
     }
 
     function handleObjectAction() {
@@ -136,6 +144,7 @@
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeSite();
+    
 });
 
 </script>
