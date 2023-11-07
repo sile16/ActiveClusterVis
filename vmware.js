@@ -40,7 +40,7 @@ class Datastore {
             //add path to paths
             this.paths.push(path);
             //log new path details
-            console.log("VM Host [" + this.host.name + "] New path added, Datastore [" + this.name + "]: " + path.srcPort.fullName + " -> " + path.dst + ":" + path.dstPort);
+            log("VM Host [" + this.host.name + "] New path added, Datastore [" + this.name + "]: " + path.srcPort.fullName + " -> " + path.dst + ":" + path.dstPort);
         }
     }
 
@@ -222,7 +222,7 @@ class VMHost extends NetworkDevice {
             for (let datastore of this.datastores) {
                 datastore.checkAPDPDL();
                 if (datastore.apd === 5) {
-                    console.log("VM Host [" + this.name + "] APD detected on Datastore [" + datastore.name + "]");
+                    log("VM Host [" + this.name + "] APD detected on Datastore [" + datastore.name + "]");
                     //"restart all VMs on this datastore"
                     for (let vm of this.vms) {
                         if (vm.datastoreName === datastore.name) {
@@ -231,7 +231,7 @@ class VMHost extends NetworkDevice {
                     }
 
                 } else if (datastore.pdl === 5) {
-                    console.log("VM Host [" + this.name + "] PDL detected on Datastore [" + datastore.name + "]");
+                    log("VM Host [" + this.name + "] PDL detected on Datastore [" + datastore.name + "]");
                     for (let vm of this.vms) {
                         if (vm.datastoreName === datastore.name) {
                             vm.handleAction("restart");
@@ -345,7 +345,7 @@ class VM {
                     }
                     this.state = "running";
                     //log vm powered on event on which host
-                    console.log("VM [" + this.name + "] powered on on host [" + this.currentHost.name + "]");
+                    log("VM [" + this.name + "] powered on on host [" + this.currentHost.name + "]");
                 }
                 break;
 
@@ -360,8 +360,8 @@ class VM {
                     this.datastoreObj.readIO(this.name);
                     this.datastoreObj.writeIO(this.name);
                     //print vm latency
-                    //console.log("VM [" + this.name + "] Avg read latency: " + this.read_latency + "ms all readIO [" +this.read_latencies+"], Avg write latency: " + this.write_latency + "ms all writeIO [" +this.write_latencies+"]");
-                    console.log("VM [" + this.name + "] Avg read latency: " + this.read_latency + "ms Avg write latency: " + this.write_latency + "ms ");
+                    //log("VM [" + this.name + "] Avg read latency: " + this.read_latency + "ms all readIO [" +this.read_latencies+"], Avg write latency: " + this.write_latency + "ms all writeIO [" +this.write_latencies+"]");
+                    log("VM [" + this.name + "] Avg read latency: " + this.read_latency + "ms Avg write latency: " + this.write_latency + "ms ");
                 }
                 break;
             case "off":

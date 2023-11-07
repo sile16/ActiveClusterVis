@@ -170,14 +170,14 @@ class FlashArrayController extends NetworkDevice {
     let podName = volume.split("::")[0];
     //check that podName is on this array:
     if (!(podName in this.fa.pods)) {
-        console.log("Pod not on this array");
+        log("Pod not on this array");
         return false;
     }
 
     let podObj = this.fa.pods[podName];
     //check if volume is in pod:
     if (!podObj.containsVolume(volume)) {
-        console.log("Volume not in pod");
+        log("Volume not in pod");
         return false;
     }
 
@@ -329,7 +329,7 @@ class FlashArrayController extends NetworkDevice {
       let otherController = this.getOtherController();
       if (this.state === "secondary" && otherController.state !== "primary" ) {
         this.state = "primary";
-        console.log("FA [" + this.name + "] Self Promoted to primary ");
+        log("FA [" + this.name + "] Self Promoted to primary ");
       }
 
       //Step each AC Pod
@@ -368,7 +368,7 @@ class FlashArrayController extends NetworkDevice {
             //if packet cumm latency is > 11 we error:
             if ( packet.cumulativeLatency >= 12 ) {
               //log WAN latency too high
-              console.log("Array ["+ this.name + "] for pod ["+acmessage.pod.name+"] latency too high, must be under 12, observed: " + packet.cumulativeLatency);
+              log("Array ["+ this.name + "] for pod ["+acmessage.pod.name+"] latency too high, must be under 12, observed: " + packet.cumulativeLatency);
 
             } else {
               acmessage.pod.array_states[this.fa.name].fa_connected = true;

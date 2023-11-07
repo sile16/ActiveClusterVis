@@ -137,11 +137,11 @@ class Port extends NetworkDevice {
 
     receivePacket(packet) {
 
-        //console.log(this.device);  // Check what this.device is
-        //console.log(this.device instanceof Switch);  // Check if this.device is an instance of Switch
-        //console.log(Object.getPrototypeOf(this.device));  // Check the prototype of this.device
-        //console.log(typeof this.device.isOnline);  // Check if isOnline is a function
-        //console.log(this.device.isOnline());  // Check if isOnline is a function
+        //log(this.device);  // Check what this.device is
+        //log(this.device instanceof Switch);  // Check if this.device is an instance of Switch
+        //log(Object.getPrototypeOf(this.device));  // Check the prototype of this.device
+        //log(typeof this.device.isOnline);  // Check if isOnline is a function
+        //log(this.device.isOnline());  // Check if isOnline is a function
         let rc = false;
         if (this.device.isOnline()) {
             if (this.forwarding  || (packet.dst === this.device.name.toLowerCase() && packet.dstPort === this.name)) {

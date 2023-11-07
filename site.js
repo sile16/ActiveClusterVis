@@ -203,7 +203,7 @@ class MultiSite extends NetworkGroup {
             if (o.handleAction) {
                 o.handleAction("step");
             } else {
-                console.log("no handleAction method for object: "+o+"  objName: " + o.name);
+                log("no handleAction method for object: "+o+"  objName: " + o.name);
             }
         }
        

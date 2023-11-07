@@ -20,9 +20,18 @@
         padding: 10px;
     }
     #cy {
-        width: 100%;
-        height: 600px;  /* Set a fixed height */
+        width: 700px;
+        height: 500px;  /* Set a fixed height */
         position: relative;
+    }
+    #logWindow {
+        width: 100%;
+        height: 150px;
+        border: 1px solid #ccc;
+        padding: 5px;
+        box-sizing: border-box;
+        overflow-y: auto;
+        white-space: pre-wrap;
     }
 </style>
 </head>
@@ -62,10 +71,18 @@
 <button onclick="step()">Step</button>
 <br><br>
 
+<div id="logWindow"></div>
 <div id="cy"></div>
+
 
 <script>
     let site;
+
+    function log(message) {
+        const logWindow = document.getElementById('logWindow');
+        logWindow.innerHTML += message + '\n';
+        logWindow.scrollTop = logWindow.scrollHeight;
+    }
 
     function initializeSite() {
         site = new MultiSite("Test Site", document.getElementById('wanlatency').value);
@@ -80,14 +97,14 @@
         site.fullStep();
         updateVisualization(site);  // Add this line
         
-        //console.log("site initialized");
+        //log("site initialized");
         //updateOutput("Site Initialized");
     }
 
     function step() {
         site.fullStep();
         updateVisualization(site);  // Add this line
-        //console.log("Step Executed");
+        //log("Step Executed");
     }
 
     

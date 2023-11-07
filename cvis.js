@@ -353,7 +353,7 @@ function handleNodeClick(nodeId, eventName) {
         }
 
     } else {
-        console.log('Invalid node or event');
+        log('Invalid node or event');
     }
 }
 
