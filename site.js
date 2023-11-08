@@ -200,11 +200,29 @@ class MultiSite extends NetworkGroup {
     }
 
     jsonStatus() {
-        let status = {};
-        status["vm"] = this.VM.jsonStatus();
-        status["pod"] = this.pod.jsonStatus();
-        status["site1"] = this.site1.jsonStatus();
-        status["site2"] = this.site2.jsonStatus();
+        //['vms', 'pods', 'podstates', 'fas', 'fahosts', 'vmhosts', 'vmhost_paths']
+        let status = {}
+        //[this.site1.fa.jsonStatus(), this.site2.fa.jsonStatus()];
+        status["vms"] = [this.VM.jsonStatus()];
+        status["pods"] = [this.pod.jsonStatus()];
+        //get the status of all the objects in pod.arrayStates
+        status["podstates"] = Object.keys(this.pod.array_states).map(key => this.pod.array_states[key].jsonStatus())
+        status['fas'] = [this.site1.fa.jsonStatus(), this.site2.fa.jsonStatus()];
+        status['fahosts'] = Object.values(this.site1.fa.hostEntries).map(h => h.jsonStatus()).concat(Object.values(this.site2.fa.hostEntries).map(h => h.jsonStatus()));
+        status['vmhosts'] = [this.site1.vmhost.jsonStatus(), this.site2.vmhost.jsonStatus()];
+
+        let paths = [];
+        for (let d in this.site1.vmhost.datastores) {
+            paths = paths.concat(this.site1.vmhost.datastores[d].jsonStatus());
+        }
+        for (let d in this.site2.vmhost.datastores) {
+            paths = paths.concat(this.site2.vmhost.datastores[d].jsonStatus());
+        }
+        //let hostpaths1 = this.site1.vmhost.datastores.map(d => d.jsonStatus());
+        //let hostpaths2 = this.site1.vmhost.datastores.map(d => d.jsonStatus());
+
+        status['vmhost_paths'] = paths;
+
         
         
         return status;

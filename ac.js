@@ -182,7 +182,8 @@ class Mediator extends NetworkDevice {
 }
 
 class PodArrayStates {
-    constructor(array, state) {
+    constructor(podName, array, state) {
+        this.podName = podName;
         this.array = array;
         this.state = state; // "baselining", "synced", "offline", "re-syncing"
         this.preElected = false;
@@ -197,11 +198,12 @@ class PodArrayStates {
 
     jsonStatus() {
         return {
+            "pod": this.podName,
             "array": this.array.name,
             "state": this.state,
-            "fa_connected": this.fa_connected,
+            "Peer FA": this.fa_connected ? "connected" : "unreachable",
             //"isForwarding": this.parent.isFowarding(this.array),
-            "mediator_connected": this.mediator_connected ? "connected" : "unreachable",
+            "mediator": this.mediator_connected ? "connected" : "unreachable",
             "preElected": this.preElected,
             "elected": this.elected,
         }
@@ -250,7 +252,7 @@ class ActiveClusterPod extends NetworkDevice {
             "mediator": this.mediator.name,
             "volumes": this.volumes,
             //iterate arrays_state and call object jsonStatus
-            "array_states": Object.keys(this.array_states).map(key => this.array_states[key].jsonStatus()),
+            //"array_states": Object.keys(this.array_states).map(key => this.array_states[key].jsonStatus()),
         }
     }
 
@@ -314,13 +316,13 @@ class ActiveClusterPod extends NetworkDevice {
 
         // check lenght of arrays:
         if (Object.keys(this.array_states).length === 0) {
-            this.array_states[arrayObj.name] = new PodArrayStates(arrayObj, "synced");
+            this.array_states[arrayObj.name] = new PodArrayStates(this.name, arrayObj, "synced");
             this.array_states[arrayObj.name].preElected = true;
             this.setStateSynced(arrayObj.name);
             
         } else {
 
-            this.array_states[arrayObj.name] = new PodArrayStates(arrayObj, "added");
+            this.array_states[arrayObj.name] = new PodArrayStates(this.name, arrayObj, "added");
             this.stetched = true;
         }
         //check if pod already in array;

@@ -26,14 +26,13 @@ class Datastore {
     }
 
     jsonStatus() {
-        let status = {
-            name: this.name,
-            isOnline: this.isOnline(),
-            apd: this.apd,
-            pdl: this.pdl,
-            //display all paths
-            paths: this.paths.map(p => {
+        return this.paths.map(p => {
                 return {
+                    host: this.host.name,
+                    datastore: this.name,
+                    datastore_apd: this.apd,
+                    datastore_pdl: this.pdl,
+                    datastore_isOnline: this.isOnline(),
                     srcPort: p.srcPort.name,
                     dst: p.dst,
                     dstPort: p.dstPort,
@@ -41,10 +40,7 @@ class Datastore {
                     ready: p.ready,
                     online: p.online
                 };
-            })
-        };
-
-        return status;
+            });
     }
 
     updatePath(volume, srcPort, packet) {
@@ -154,13 +150,9 @@ class Target {
     }
     
     jsonStatus() {
-        let status = {
-            target: this.target,
-            targetPort: this.targetPort
-        };
-
-        return status;
+        return this.target + ":" + this.targetPort;
     }
+    
 }
 
 class VMHost extends NetworkDevice {
@@ -181,8 +173,8 @@ class VMHost extends NetworkDevice {
             name: this.name,
             isOnline: this.isOnline(),
             //display all paths
-            datastores: this.datastores.map(d => d.jsonStatus()),
-            targets: this.targets.map(t => {t.jsonStatus()}),
+            //datastores: this.datastores.map(d => d.jsonStatus()),
+            targets: this.targets.map(t => t.jsonStatus()   ),
             //vms: this.vms.map(v => {v.jsonStatus()})
         };
 
@@ -306,8 +298,8 @@ class VM {
         this.state = "off";
         this.read_latency = "unknown";
         this.write_latency = "unknown";
-        this.read_latency_max = 0;
-        this.write_lateny_max = 0;
+        this.read_latency_max = "unknown";
+        this.write_latency_max = "unknown";
         this.read_latencies = [];
         this.write_latencies = [];
     }
@@ -318,9 +310,9 @@ class VM {
             state: this.state,
             currentHost: this.currentHost ? this.currentHost.name : "none",
             datastore: this.datastoreName,
-            read_latency: this.read_latency,
+            read_latency_average: this.read_latency,
             read_latency_max: this.read_latency_max,
-            write_latency: this.write_latency,
+            write_latency_average: this.write_latency,
             write_latency_max: this.write_latency_max
         };
 
@@ -355,6 +347,10 @@ class VM {
         }
     }
 
+    round(num, places=1) {
+        return Math.round(num * Math.pow(10, places)) / Math.pow(10, places);
+    }
+
     readAck(packet) {
         this.read_latencies.push(packet.cumulativeLatency);
 
@@ -364,12 +360,12 @@ class VM {
         for (let latency of this.read_latencies) {
             sum += latency;
             if(this.read_latency_max < latency) {
-                this.read_latency_max = latency;
+                this.read_latency_max =this.round(latency);
             }
         }
         this.read_latency = sum / this.read_latencies.length;
         //round to 1 decimal place
-        this.read_latency = Math.round(this.read_latency * 10) / 10;
+        this.read_latency = this.round(this.read_latency);
         
     }
 
@@ -377,18 +373,18 @@ class VM {
         this.write_latencies.push(packet.cumulativeLatency);
         //average all entries in the write_latencies array and store in write_latency
         let sum = 0;
-        this.write_lateny_max = 0
+        this.write_latency_max = 0
         for (let latency of this.write_latencies) {
             sum += latency;
             
             if(this.write_latency_max < latency) {
-                this.write_latency_max = latency;
+                this.write_latency_max = this.round(latency);
             }
         }
         
         this.write_latency = sum / this.write_latencies.length;
         //round to 1 decimal place
-        this.write_latency = Math.round(this.write_latency * 10) / 10;
+        this.write_latency = this.round(this.write_latency);
     }
 
     step() {

@@ -41,7 +41,7 @@
 <body>
 
     <h1>Active Cluster Simulator</h1>
-    <!--Add WAN Latency Input-->
+    <p>Notes: Volume name and datstore name are alwyas the same. Please report any issues <a https://github.com/sile16/ActiveClusterVis/issues>here</a></p>
     <label for="wanlatency">WAN Latency RTT (ms):</label>
     <input oninput="site.setWANLatency(this.value)" type="text" id="wanlatency" name="wanlatency" value="3">
 
@@ -56,8 +56,7 @@
         <option value="site2fa1">site2fa1</option>
     </select>
     <button onclick="site.enableAPDPDL()">Enable VMWare APD/PDL</button>
-    
-    
+
     <br><br>
     
 
@@ -71,12 +70,26 @@
     <option value="power_off">Power Off (VM Only)</option>
     <option value="reboot">Reboot (VM Only)</option>
 </select> add step after click <input type="checkbox" id="clickstep" name="step" value="step" checked>
-<button onclick="step()">Step</button>
+<button onclick="step()">Step Forward In Time</button>
 <br><br>
 
 <div id="logWindow"></div>
 <div id="cy"></div>
-<div id="jsoneditor"></div>
+<p>VMS:</p>
+<div id="vms_jsoneditor"></div>
+<p>Pods:</p>
+<div id="pods_jsoneditor"></div>
+<p>Pod States:</p>
+<div id="podstates_jsoneditor"></div>
+<p>FlashArrays:</p>
+<div id="fas_jsoneditor"></div>
+<p>FA Host Entries:</p>
+<div id="fahosts_jsoneditor"></div>
+<p>VMHosts</p>
+<div id="vmhosts_jsoneditor"></div>
+<p>Datastore Paths</p>
+<div id="vmhost_paths_jsoneditor"></div>
+
 <script  type="module">
  import { JSONEditor } from 'https://unpkg.com/vanilla-jsoneditor/index.js'
         /*let content = {
@@ -86,15 +99,31 @@
             }
         }*/
 
-        const editor = new JSONEditor({
-            target: document.getElementById('jsoneditor'),
+    let editors = {};
+    for (let x of ['vms', 'pods', 'podstates', 'fas', 'fahosts', 'vmhosts', 'vmhost_paths']) {
+        
+        editors[x] = new JSONEditor({
+            target: document.getElementById(x + '_jsoneditor'),
             props: {
-                readonly:true
+                readOnly: true,
+                fmainMenuBar: false,
+                mode: "table",
+                statusBar: false,
+                navigationBar: false
             }
-           
-        })
+        });
 
-        window.editorSet = (content) => editor.set(content);
+        // example for single editor: window.fa_editorSet = (content) => fa_editor.set(content);
+        // set a window variable to access all the editors using the x variable
+        // Example for accessing the editor using the x variable
+        // Store the editor in the editors object
+        
+
+        window[x + '_editorSet'] = (content) => editors[x].set(content);
+
+    }
+
+        
 </script>
 
 <script>
@@ -129,9 +158,13 @@
         updateVisualization(site);  // Add this line
         let currentjsonState = site.jsonStatus();
         //content.json = currentjsonState;  
-        if (window.editorSet) {
-            window.editorSet({json: currentjsonState});
+         
+        for (let x of ['vms', 'pods', 'podstates', 'fas', 'fahosts', 'vmhosts', 'vmhost_paths']) {
+            if (window[x + '_editorSet']) {
+               window[x + '_editorSet']({json: currentjsonState[x]});
+            }
         }
+        
         //log("Step Executed");
     }
 

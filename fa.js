@@ -40,7 +40,7 @@ class FlashArray extends NetworkGroup {
       name: this.name,
       state: this.state,
       isOnline: this.isOnline(),
-      hostEntries: Object.values(this.hostEntries).map(h => h.jsonStatus()),
+      //hostEntries: Object.values(this.hostEntries).map(h => h.jsonStatus()),
       CT0: this.ct0.jsonStatus(),
       CT1: this.ct1.jsonStatus(),
     };
@@ -86,6 +86,7 @@ class HostEntry {
 
   jsonStatus() {
     return {
+      fa: this.fa.name,
       host: this.host,
       volumes: this.volumes,
       preferredArrays: Object.keys(this.preferredArrays),
@@ -160,9 +161,8 @@ class FlashArrayController extends NetworkDevice {
 
   jsonStatus() {
     return {
-      name: this.name,
+      //name: this.name,
       state: this.state,
-      isOnline: this.isOnline()
     };
   }
 
