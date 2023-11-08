@@ -30,15 +30,17 @@ class Datastore {
                 return {
                     host: this.host.name,
                     datastore: this.name,
-                    datastore_apd: this.apd,
-                    datastore_pdl: this.pdl,
                     datastore_isOnline: this.isOnline(),
                     srcPort: p.srcPort.name,
                     dst: p.dst,
                     dstPort: p.dstPort,
                     optimized: p.optimized,
                     ready: p.ready,
-                    online: p.online
+                    online: p.online,
+                    restart_on_apd: this.host.enableAPDPDL,
+                    restart_on_pdl: this.host.enableAPDPDL,
+                    apd_timer: this.apd,
+                    pdl_timer: this.pdl,
                 };
             });
     }
