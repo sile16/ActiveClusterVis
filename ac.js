@@ -251,6 +251,7 @@ class ActiveClusterPod extends NetworkDevice {
             "isStretched": this.isStretched(),
             "mediator": this.mediator.name,
             "volumes": this.volumes,
+            "failoverPreference": this.failoverPreference ? this.failoverPreference : "none",
             //iterate arrays_state and call object jsonStatus
             //"array_states": Object.keys(this.array_states).map(key => this.array_states[key].jsonStatus()),
         }
