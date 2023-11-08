@@ -60,7 +60,7 @@ class Datastore {
             //add path to paths
             this.paths.push(path);
             //log new path details
-            log("VM Host [" + this.host.name + "] New path added, Datastore [" + this.name + "]: " + path.srcPort.fullName + " -> " + path.dst + ":" + path.dstPort);
+            log("VMHost [" + this.host.name + "] Datastore [" + this.name + "]: New Path:" + path.srcPort.fullName + " -> " + path.dst + ":" + path.dstPort);
         }
     }
 
@@ -234,6 +234,9 @@ class VMHost extends NetworkDevice {
         for (let datastore of this.datastores) {
             datastore.paths.forEach(p => {
                 p.online = false;
+                p.ready = "unknown";
+                p.optimized = "unknown";
+
             });
         }
 

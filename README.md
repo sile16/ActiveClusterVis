@@ -1,66 +1,86 @@
 # ActiveClusterVis
-This project simulates an environment using Pure FlashArray Active Cluster.  The goal is to simulate failure senarios for different configurations to make it easier to understand how it works and why certain settings like VMWare APD/PDL settings are needed.
 
-## Try it out Now
-[MultiSite](https://sile16.github.io/ActiveClusterVis/testmultisite.html)
+This project simulates an environment utilizing Pure FlashArray Active Cluster. The objective is to replicate failure scenarios for various configurations to facilitate a better understanding of the system's workings, particularly the necessity of settings like VMware APD/PDL.
+
+## Try it Out Now
+
+Experience the simulation in action:
+
+[MultiSite Simulation](https://sile16.github.io/ActiveClusterVis/testmultisite.html)
 
 ## Usage
 
 ### Actions
-Pull the dropdown for actions and then click on devices or links.  Some actions are only relevant to some devices, non relevant actions will be ignored.
 
+Use the dropdown menu to select actions, then click on devices or links to apply them. Some actions are only applicable to certain devices and will be disregarded if they are not relevant.
 
-### Steps - Moving time forward.
-Think of a step as a couple of seconds.  The goal is not to simulate actual timing, however, but to simulate the order of events how they would actually occur. By default, it moves a step foward after each action done by clicking. Some failure senarios, like showing how a simultanious failure of the FA<->FA links and the medaitor, will require un-checking the Auto step, failing all the devices, then stepping forward.  This is so that pre-election doesn't occur automatically.   Also note, that you may need to manually step forward to get to a steady state.  There are many timers, suchs as, pod re-sync, mediatior delay, mediator failover override delay, VMWare APD and PDL delays, how long a VM can be suspended before it fails, etc.   Also, again, in this simulation it's measured in steps and should reflect relative timeouts in the real world in order to ensure correct order of events, however, the absolute values are not simulated.
+### Steps - Advancing Time
+
+A 'step' represents a progression of a few seconds. The aim is to emulate the sequence of events rather than the actual timing. By default, the simulation advances one step after each user action. Certain failure scenarios, such as demonstrating the concurrent failure of FA<->FA links and the mediator, require disabling the 'Auto step' feature. This allows all devices to fail before progressing, preventing automatic pre-election. Note that manual advancement may be necessary to reach a steady state due to various timers, such as pod re-sync, mediator delay, mediator failover override delay, and VMware APD and PDL delays, among others. The simulation counts these in 'steps' to reflect relative timeouts in real-world scenarios, ensuring the correct sequence of events, though not the absolute time values.
 
 ### Network / Device Simulation
-Because the nework can have so many different topologies, the only way to handle it is to simulate it.  We have virtual switches, WAN links with latency, packets that get sent by controllers, IO sent by VMs. Target login and path discover sent by VM Hosts.   These are all made into packets sent across the network and if received by the other endpoint responded to. 
+
+Given the complexity of network topologies, the simulation encompasses a wide range of components, including virtual switches, WAN links with latency, and packets sent by controllers and VMs for operations like target login and path discovery. These packets traverse the simulated network, with responses generated upon successful receipt.
 
 ### Network Links
-Links that are black lines means they are connected and available but no data is flowing. 
 
-#### Pulsing lines, 
-this means that one of the following was sent across the link: (Only read/write/mirrored_write IOs and read/write/mirrored_write acks, and Mediation Heartbets, and mediation requests.) The link that is pulsing means at least one successful packet traversed that link and was received by the other end.
+- **Steady Links**: Represented by solid black lines, indicating connectivity without active data transfer.
+- **Pulsing Lines**: Signify the transit of specific packets, such as read/write IOs, mirrored write acks, and mediation heartbeats. Pulsing indicates at least one successful packet delivery.
 
-#### Read & Write Latency 
-It is reported by the VM, the FlashArrays have a fixed internal write latency or 0.2ms write and 0.5ms read.  Local links have latency of 0 and the WAN links are configurable. There are some interesting senarios where a write could traverse the WAN twice in Unified configurations, for example, so we wanted to show failure conditions impact to latency and also highlight the fact that all reads are serviced locally.  There is a read and write IO sent down every possible path, which potentially will average some local IO with WAN IO in certain active/Optimized setups.
+#### Read & Write Latency
 
-### Replciation FC vs Eth
-Both behaviors should be able to simulated accurately.  For Eth, there is a crossover cable between the replication switches. 
+Reported by the VM, the FlashArrays are configured with fixed latencies of 0.2ms for writes and 0.5ms for reads. Local links have zero latency, while WAN links are variable. This setup allows the simulation to exhibit the impact of failures on latency and demonstrate that all reads are serviced locally.
 
-### Host FC/iSCSI
-Behavior should be identical regarless of host connectivity type.
+### Replication: FC vs. Ethernet
 
-### Non-Uniform
-The multi-site comes up with non-uniform.
+The simulation aims to accurately represent both FC and Ethernet replication behaviors, including the use of crossover cables for Ethernet-based replication.
 
-### Uniform
-You can add Uniform Optimized links.   This creates the links, adds other array targets to the VMHost, and creates a host entry on the array to allow access to the pod volume.
+### Host Connectivity: FC/iSCSI
 
-### Uniform non-optimized
-You can set the host entries preferred array wich will set the wan links to non-optimized, the VMHost will then see this new status and only use those links if there isn't an optimized path available.
+Regardless of whether the host uses FC or iSCSI, the behavior remains consistent.
 
-### VMs
-The VM when in the booting state will wait until it finds a VMHost will it's datastore (same name as volume name), that is online on a host in it's allowed host list.
+### Non-Uniform Configuration
+
+The multi-site simulation initializes in a non-uniform configuration by default.  When it starts up it does 4 steps up front, so you will see controllers becoming primary, then path discovery, then the VM comes online, then Pod get's stretched to the other array, does it's baseline and the VM starts some IO.
+
+### Uniform Configuration
+
+Users can add Uniform Optimized links, which simulate the establishment of additional array targets to the VMHost and the creation of a host entry on the array for pod volume access.
+
+### Uniform Non-Optimized
+
+Setting the host entry's preferred array to non-optimized will influence the VMHost to prioritize other paths when optimized ones are unavailable.
+
+### VM Behavior
+
+VMs in a booting state will wait for an available VMHost with a matching datastore before proceeding.
 
 ### All Paths Down (APD) / Permanent Device Loss (PDL)
-APD, is hopefully transient, it means there was not a response from the storage array, the message just timed out.  In that VMHost state this is the "online" property of the path.  PDL means the array responded, but told the VMHost the device is lost, in this simulation this is the "ready" property of the volume. In this situation it will happen if the Pod is offline on an active array the simulation will return not read for those Volumes.
 
-The VMHost setting for what to do with APD/PDL by default matches vmware, do nothing.  However, if you want the VM to automatically be restarted on another available VM Host, you need to set this.
+- **APD**: A temporary state indicating a lack of response from the storage array, represented in the simulation as the "online" property of the path.
+- **PDL**: Occurs when the array responds with a notification of device loss. In this simulation, it's represented by the "ready" property of a volume and is triggered when a Pod goes offline.
 
-More information (Here)[https://support.purestorage.com/Solutions/VMware_Platform_Guide/User_Guides_for_VMware_Solutions/ActiveCluster_with_VMware_User_Guide/vSphere_Metro_Storage_Cluster_With_ActiveCluster%3A_Configuring_vSphere_HA]
+The default VMHost behavior for APD/PDL events is inaction. However, users can configure automatic VM restarts on alternate VMHosts.
+
+For more information, visit the (Pure ActiveCluster with VMWare Guide))[https://support.purestorage.com/Solutions/VMware_Platform_Guide/User_Guides_for_VMware_Solutions/ActiveCluster_with_VMware_User_Guide/vSphere_Metro_Storage_Cluster_With_ActiveCluster%3A_Configuring_vSphere_HA]
 
 
 ### Simulated Behaviors
- - Links failures
- - switch failures
- - mediator failure
- - FA Controller failure / promotion / failure
- - FA Host settings (controlls paths, and optimized, non-optimized paths, volume availability)
- - Pod (Array add, volume availability baselining, re-sycing, mediation requests, pre-election, recovery, Wan latency exceeds 11ms behavior)
- - VMWare Host failure, path discovery.
- - Datastores (APD & PDL settings and VMWare restart)
- - VMs (simulates IO, running, suspended, provisioning)
+
+- Link and switch failures
+- Mediator, FA Controller, and VMWare Host failures, including controller promotion
+- FA Host settings management
+- Pod behaviors such as volume availability, re-syncing, and mediation
+- VMWare path discovery
+- Datastore behaviors, including APD & PDL settings
+- VM operations, such as IO simulation and state transitions
+
+### Future Simulation Enhancements
+
+The framework now supports the creation of more complex or specific scenarios, such as improperly configured setups. For
+
+
+
 
 ### Future Simulation
 More complicated or specific examples can easily be created now that all the underlying components are simulated.  Bad setup examples for instance, if site2 requires site1 mgmt switches to talk to the mediator.  You could set that up and show how it fails.

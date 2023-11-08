@@ -21,27 +21,55 @@
         margin-top: 20px;
         border: 1px solid #ccc;
         padding: 10px;
+
     }
+    .content-container {
+        display: flex; /* This will align the children side by side */
+        border-left: thick solid rgb(240, 83, 35); /* Left border */
+        border-right: thick solid rgb(240, 83, 35);; /* Right border */
+        border-bottom: thick solid rgb(240, 83, 35);; /* Right border */
+        border-top: thick solid rgb(240, 83, 35);; /* Right border */
+        border-width: 10x;
+        margin-bottom: 20px; /* Space at the bottom for scrolling */
+    }
+
     #cy {
-        width: 700px;
-        height: 500px;  /* Set a fixed height */
-        position: relative;
+        flex: 0 1 60%; /* Do not grow, can shrink, start with 70% of the space */
+        margin: 10px;
+        height: 650px;
+        overflow-y: auto;
+        box-sizing: border-box;
+        border-right: thick solid rgb(240, 83, 35); 
     }
+
     #logWindow {
-        width: 100%;
-        height: 150px;
-        border: 1px solid #ccc;
-        padding: 5px;
+        flex: 0 1 40%; /* Do not grow, can shrink, start with 30% of the space */
+        
         box-sizing: border-box;
         overflow-y: auto;
+        margin: 10px;
+        height: 650px;
         white-space: pre-wrap;
+
+        /*white-space: nowrap;*/
     }
+
+    
+    
+    @media (max-width: 768px) {
+    .content-container {
+        flex-direction: column; /* Stack the children on smaller screens */
+    }
+    #logWindow, #cy {
+        flex-basis: auto; /* Reset to auto on smaller screens */
+    }
+}
 </style>
 </head>
 <body>
 
     <h1>Active Cluster Simulator</h1>
-    <p>Notes: Volume name and datstore name are alwyas the same. Please report any issues <a https://github.com/sile16/ActiveClusterVis/issues>here</a></p>
+    <p><a href="https://github.com/sile16/ActiveClusterVis">Documentation</a>, report issues <a href="https://github.com/sile16/ActiveClusterVis/issues">here</a></p>
     <label for="wanlatency">WAN Latency RTT (ms):</label>
     <input oninput="site.setWANLatency(this.value)" type="text" id="wanlatency" name="wanlatency" value="3">
 
@@ -73,8 +101,11 @@
 <button onclick="step()">Step Forward In Time</button>
 <br><br>
 
-<div id="logWindow"></div>
-<div id="cy"></div>
+<div class="content-container">
+  <div id="cy"></div>
+  <div id="logWindow"></div>
+</div>
+
 <p>VMS:</p>
 <div id="vms_jsoneditor"></div>
 <p>Pods:</p>
@@ -165,7 +196,7 @@
             }
         }
         
-        //log("Step Executed");
+        log("--------------------------------------------------------------------------------------------------------");
     }
 
     

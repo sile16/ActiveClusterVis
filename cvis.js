@@ -21,7 +21,7 @@ function pulseEdge(edgeId) {
     const edge = cy.$id(edgeId);
     let growing = true;
     const max_width = 6;
-    const min_width = 4;
+    const min_width = 2;
     
     function animate() {
         const width = growing ? max_width : min_width;
