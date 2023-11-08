@@ -324,6 +324,7 @@ class VM {
     removeFromVMHost() {
         if (this.currentHost){
             this.currentHost.vms = this.currentHost.vms.filter(v => v.name !== this.name);
+            this.currentHost = null;
         }
         this.datastoreObj = null;
     }
@@ -335,6 +336,7 @@ class VM {
                 this.removeFromVMHost();
                 if (this.offgroup) {
                     this.offgroup.addChildren([this]);
+                    this.currentHost = this.offgroup.name;
                 }
                 break;
             case "power_on":
