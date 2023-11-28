@@ -298,7 +298,7 @@ class VM {
         this.offgroup = offgroup;
         this.offgroup.addChild(this);
         
-        this.currentHost = null;
+        this.currentHostObj = null;
         this.datastoreObj = null;
         this.state = "off";
         this.read_latency = "unknown";
@@ -313,7 +313,7 @@ class VM {
         let status = {
             name: this.name,
             state: this.state,
-            currentHost: this.currentHost ? this.currentHost.name : "none",
+            currentHost: this.currentHostObj ? this.currentHostObj.name : "none",
             datastore: this.datastoreName,
             read_latency_average: this.read_latency,
             read_latency_max: this.read_latency_max,
@@ -325,11 +325,13 @@ class VM {
     }
 
     removeFromVMHost() {
-        if (this.currentHost){
-            this.currentHost.vms = this.currentHost.vms.filter(v => v.name !== this.name);
-            this.currentHost = null;
+        if (this.currentHostObj){
+            //remove me from this.currentHost.vms
+            this.currentHostObj.vms = this.currentHostObj.vms.filter(v => v.name !== this.name);
+
+            this.currentHostObj = null;
         }
-        this.datastoreObj = null;
+        //this.datastoreObj = null;
     }
 
     handleAction(event) {
@@ -337,10 +339,6 @@ class VM {
             case "power_off":
                 this.state = "off";
                 this.removeFromVMHost();
-                if (this.offgroup) {
-                    this.offgroup.addChildren([this]);
-                    this.currentHost = this.offgroup.name;
-                }
                 break;
             case "power_on":
                 this.state = "booting";
@@ -408,22 +406,19 @@ class VM {
                 if (ready_host) {
                     //send power on
                     //remove me from the old homst vms
-                    if(this.currentHost) {
-                        this.currentHost.vms = this.currentHost.vms.filter(v => v.name !== this.name);
-                    }
-                    
-                    this.currentHost = ready_host;
+                    this.removeFromVMHost()                    
+                    this.currentHostObj = ready_host;
                     
 
                     //add this vm the host list if not already there
-                    if (!this.currentHost.vms.find(v => v.name === this.name)) {
-                        this.currentHost.vms.push(this);
+                    if (!this.currentHostObj.vms.find(v => v.name === this.name)) {
+                        this.currentHostObj.vms.push(this);
 
-                        this.datastoreObj = this.currentHost.datastores.find(d => d.name === this.datastoreName);
+                        this.datastoreObj = this.currentHostObj.datastores.find(d => d.name === this.datastoreName);
                     }
                     this.state = "running";
                     //log vm powered on event on which host
-                    log("VM [" + this.name + "] powered on on host [" + this.currentHost.name + "]");
+                    log("VM [" + this.name + "] powered on on host [" + this.currentHostObj.name + "]");
                 }
                 break;
 

@@ -438,7 +438,7 @@ class ActiveClusterPod extends NetworkDevice {
 
     setArrayNameOffline(arrayName) {
 
-        this.array_states[arrayName] = "offline";
+        this.array_states[arrayName].state = "offline";
         
     }
 

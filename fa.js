@@ -371,7 +371,7 @@ class FlashArrayController extends NetworkDevice {
       //if both controllers are offline we need to set the pod state to offline
       if (this.state === "failed" && otherController.state === "failed") {
         for (let pod of Object.values(this.fa.pods)) {
-          pod.setArrayOffline(this.fa.name);
+          pod.setArrayNameOffline(this.fa.name);
         }
       }
 

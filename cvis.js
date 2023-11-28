@@ -78,8 +78,8 @@ function addElementsRecursively(obj, elements) {
     if (obj.constructor.name === 'VM') {
         // If this object is a VM, set its parent to its associated VMHost
         
-        if(obj.currentHost){
-            elementData.data.parent = obj.currentHost.name;
+        if(obj.currentHostObj){
+            elementData.data.parent = obj.currentHostObj.name;
         } else {
             elementData.data.parent = site.poweredOffVMsGroup.name;
         }
