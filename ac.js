@@ -517,6 +517,14 @@ class ActiveClusterPod extends NetworkDevice {
                     log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
                     break;
                 
+                case "offline":
+                    //If we can back and we were elected before going offline then we are still elected
+                    //we can transition to synced
+                    if (states.elected) {
+                        this.setStateSynced(arrayName);
+                        log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state );
+                    }
+                
                 default:
                     //not sure how we get here, lets log amessage:
                     log("Array [" + arrayName + "]  other array is offline, but this array is " + states.state + " so we can't do anything ")
@@ -576,6 +584,12 @@ class ActiveClusterPod extends NetworkDevice {
                         log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
                     }
                     break;
+                case "offline":
+                    //even if we can't reach the other array if we are elected go to sync
+                    if (states.elected) {
+                        this.setStateSynced(arrayName);
+                        log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
+                    }
                 
             }
         }

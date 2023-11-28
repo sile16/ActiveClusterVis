@@ -84,3 +84,9 @@ The framework now supports the creation of more complex or specific scenarios, s
 
 ### Future Simulation
 More complicated or specific examples can easily be created now that all the underlying components are simulated.  Bad setup examples for instance, if site2 requires site1 mgmt switches to talk to the mediator.  You could set that up and show how it fails.
+
+### Notes
+To run locally you will need to allow java script to load files locally, you can launch crhome on Mac like this:
+```
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --allow-file-access-from-files
+```
