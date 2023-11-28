@@ -367,6 +367,14 @@ class FlashArrayController extends NetworkDevice {
            pod.acStep(this);
         }
       }
+
+      //if both controllers are offline we need to set the pod state to offline
+      if (this.state === "failed" && otherController.state === "failed") {
+        for (let pod of Object.values(this.fa.pods)) {
+          pod.setArrayOffline(this.fa.name);
+        }
+      }
+
     }
   
     receivePacketFromPortRep(packet, srcPort) {
@@ -397,9 +405,11 @@ class FlashArrayController extends NetworkDevice {
             if ( packet.cumulativeLatency >= 12 ) {
               //log WAN latency too high
               log("Array ["+ this.name + "] for pod ["+acmessage.pod.name+"] latency too high, must be under 12, observed: " + packet.cumulativeLatency);
+              return false;
 
             } else {
               acmessage.pod.array_states[this.fa.name].fa_connected = true;
+              return true;
             }
             return false;//prevents dataFlowing
             

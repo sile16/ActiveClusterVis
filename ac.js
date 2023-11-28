@@ -436,6 +436,12 @@ class ActiveClusterPod extends NetworkDevice {
         return false;
     }
 
+    setArrayNameOffline(arrayName) {
+
+        this.array_states[arrayName] = "offline";
+        
+    }
+
 
     acStep(faController){
         //ActiveCluster

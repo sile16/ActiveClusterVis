@@ -259,18 +259,22 @@ function updateVisualization(site) {
     if (!cy) {
         cy = cytoscape({
            container: document.getElementById('cy'),
+           wheelSensitivity: 0.2, // Adjust this value for your needs
+           minZoom: 0.5,          // Adjust this value for your needs
+           maxZoom: 10,           // Adjust this value for your needs
            elements: elements,
            style: style,
            layout: {
             name: 'preset',
             //idealEdgeLength: 100, // Adjust this value for your needs
-            positions: savedPositions      // Adjust this value for your needs
+            positions: savedPositions,      // Adjust this value for your needs
             //refresh: 20,
             //fit: true,
             //padding: 40,
             //randomize: false,
             //nestingFactor: 0,
             //gravity: 100,          // Adjust this value for your needs
+            
             
         }});
 
