@@ -437,9 +437,14 @@ class ActiveClusterPod extends NetworkDevice {
     }
 
     setArrayNameOffline(arrayName) {
-
-        this.array_states[arrayName].state = "offline";
-        
+        //array went offline, if we were in synced, we need to come up as paused.
+        if (this.array_states[arrayName].state === "synced") {
+            this.array_states[arrayName].state = "paused";
+        } else {
+            this.array_states[arrayName].state = "offline";
+        }
+        this.array_states[arrayName].mediator_connected = false;
+        this.array_states[arrayName].fa_connected = false;
     }
 
 

@@ -334,6 +334,7 @@ function handleNodeClick(nodeId, eventName) {
 
     if(allObjects[nodeId].handleAction) {
         allObjects[nodeId].handleAction(eventName);
+        log('Action: Node ' + nodeId + ' ' + eventName);
 
         //check all nodes in allObjects and set crossedOut to true if failed
 
@@ -363,6 +364,7 @@ function handleNodeClick(nodeId, eventName) {
 
 function handleEdgeClick(edgeId, eventName) {
     globalAllConnections[edgeId].handleAction(eventName);
+    log('Action: Edge ' + edgeId + ' ' + eventName);
     if(document.getElementById('clickstep').checked) {
         step();
     }

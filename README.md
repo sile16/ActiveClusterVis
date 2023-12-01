@@ -90,3 +90,12 @@ To run locally you will need to allow java script to load files locally, you can
 ```
 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --allow-file-access-from-files
 ```
+
+### Todo
+ - Make X bolder
+ - make VM color change on paused IO
+ - make site failover instance change
+ - Fix non failover preference winner
+ - check datastore online before booting vm
+ - do replication paths through combined FC switches.
+ 

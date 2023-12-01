@@ -1,0 +1,198 @@
+FA [site1fa1-ct0] Self Promoted to primary 
+Array [site1fa1] pod [pod1] is elected!
+VMHost [site1vmhost] Datastore [pod1::podds1]: New Path:site1vmhost-fc0 -> site1fa1-ct0:fc0
+VMHost [site1vmhost] Datastore [pod1::podds1]: New Path:site1vmhost-fc0 -> site1fa1-ct1:fc0
+VMHost [site1vmhost] Datastore [pod1::podds1]: New Path:site1vmhost-fc1 -> site1fa1-ct0:fc1
+VMHost [site1vmhost] Datastore [pod1::podds1]: New Path:site1vmhost-fc1 -> site1fa1-ct1:fc1
+FA [site2fa1-ct0] Self Promoted to primary 
+Array [site2fa1] pod [pod1] is baselining
+VMHost [site2vmhost] Datastore [pod1::podds1]: New Path:site2vmhost-fc0 -> site2fa1-ct0:fc0
+VMHost [site2vmhost] Datastore [pod1::podds1]: New Path:site2vmhost-fc0 -> site2fa1-ct1:fc0
+VMHost [site2vmhost] Datastore [pod1::podds1]: New Path:site2vmhost-fc1 -> site2fa1-ct0:fc1
+VMHost [site2vmhost] Datastore [pod1::podds1]: New Path:site2vmhost-fc1 -> site2fa1-ct1:fc1
+VM [podvm1] powered on on host [site1vmhost]
+--------------------------------------------------------------------------------------------------------
+Array [site2fa1] pod [pod1] is baselining
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 0.2ms 
+--------------------------------------------------------------------------------------------------------
+Array [site2fa1] pod [pod1] is synced
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Array [site1fa1] pod [pod1] is no longer pre-elected
+Array [site1fa1] pod [pod1] is no longer elected
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Action: Edge site1replicationswitch1-2_<->_site2replicationswitch1-2 fail
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Action: Edge site1replicationswitch2-2_<->_site2replicationswitch2-2 fail
+Array [site1fa1] pod [pod1] is paused:No pre-election
+Array [site2fa1] pod [pod1] is paused:No pre-election
+--------------------------------------------------------------------------------------------------------
+Array [site1fa1] pod [pod1] is paused
+Array [site1fa1] pod contactiing Mediator.
+Array [site2fa1] pod [pod1] is paused
+Array [site2fa1] pod contactiing Mediator.
+--------------------------------------------------------------------------------------------------------
+Array [site1fa1] pod [pod1]  Cloud Mediation won
+Array [site1fa1] pod [pod1] is synced
+Array [site2fa1] pod [pod1]  Cloud Mediation lost
+Array [site2fa1] pod [pod1] is offline
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 0.2ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 0.2ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 0.2ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 0.2ms 
+--------------------------------------------------------------------------------------------------------
+Action: Edge site1replicationswitch1-2_<->_site2replicationswitch1-2 recover
+Array [site2fa1] pod [pod1] is re-syncing
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 0.2ms 
+--------------------------------------------------------------------------------------------------------
+Action: Edge site1replicationswitch2-2_<->_site2replicationswitch2-2 recover
+Array [site2fa1] pod [pod1] is synced
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Array [site1fa1] pod [pod1] is no longer elected
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Action: Node site1fa1-ct0 fail
+FA [site1fa1-ct1] Self Promoted to primary 
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Action: Node site1fa1-ct1 fail
+Array [site2fa1] pod [pod1] is paused:No pre-election
+--------------------------------------------------------------------------------------------------------
+Array [site2fa1] pod [pod1] is paused
+Array [site2fa1] pod contactiing Mediator.
+--------------------------------------------------------------------------------------------------------
+Array [site2fa1] pod [pod1]  Cloud Mediation lost
+Array [site2fa1] pod [pod1] is offline
+--------------------------------------------------------------------------------------------------------
+
+
+
+FA [site1fa1-ct0] Self Promoted to primary 
+Array [site1fa1] pod [pod1] is elected!
+VMHost [site1vmhost] Datastore [pod1::podds1]: New Path:site1vmhost-fc0 -> site1fa1-ct0:fc0
+VMHost [site1vmhost] Datastore [pod1::podds1]: New Path:site1vmhost-fc0 -> site1fa1-ct1:fc0
+VMHost [site1vmhost] Datastore [pod1::podds1]: New Path:site1vmhost-fc1 -> site1fa1-ct0:fc1
+VMHost [site1vmhost] Datastore [pod1::podds1]: New Path:site1vmhost-fc1 -> site1fa1-ct1:fc1
+FA [site2fa1-ct0] Self Promoted to primary 
+Array [site2fa1] pod [pod1] is baselining
+VMHost [site2vmhost] Datastore [pod1::podds1]: New Path:site2vmhost-fc0 -> site2fa1-ct0:fc0
+VMHost [site2vmhost] Datastore [pod1::podds1]: New Path:site2vmhost-fc0 -> site2fa1-ct1:fc0
+VMHost [site2vmhost] Datastore [pod1::podds1]: New Path:site2vmhost-fc1 -> site2fa1-ct0:fc1
+VMHost [site2vmhost] Datastore [pod1::podds1]: New Path:site2vmhost-fc1 -> site2fa1-ct1:fc1
+VM [podvm1] powered on on host [site1vmhost]
+--------------------------------------------------------------------------------------------------------
+Array [site2fa1] pod [pod1] is baselining
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 0.2ms 
+--------------------------------------------------------------------------------------------------------
+Array [site2fa1] pod [pod1] is synced
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Array [site1fa1] pod [pod1] is no longer pre-elected
+Array [site1fa1] pod [pod1] is no longer elected
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Action: Node site1fa1-ct0 fail
+FA [site1fa1-ct1] Self Promoted to primary 
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Action: Node site1fa1-ct1 fail
+Array [site2fa1] pod [pod1] is paused:No pre-election
+--------------------------------------------------------------------------------------------------------
+Array [site2fa1] pod [pod1] is paused
+Array [site2fa1] pod contactiing Mediator.
+--------------------------------------------------------------------------------------------------------
+Array [site2fa1] pod [pod1]  Cloud Mediation won
+Array [site2fa1] pod [pod1] is synced
+--------------------------------------------------------------------------------------------------------
+Action: Node site1fa1-ct0 recover
+FA [site1fa1-ct0] Self Promoted to primary 
+Array [site1fa1] pod [pod1] is re-syncing
+--------------------------------------------------------------------------------------------------------
+Action: Node site1fa1-ct1 recover
+Array [site1fa1] pod [pod1] is synced
+Array [site2fa1] pod [pod1] is no longer elected
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Action: Edge site1replicationswitch1-2_<->_site2replicationswitch1-2 fail
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Action: Edge site1replicationswitch2-2_<->_site2replicationswitch2-2 fail
+Array [site1fa1] pod [pod1] is paused:No pre-election
+Array [site2fa1] pod [pod1] is paused:No pre-election
+--------------------------------------------------------------------------------------------------------
+Array [site1fa1] pod [pod1] is paused
+Array [site1fa1] pod contactiing Mediator.
+Array [site2fa1] pod [pod1] is paused
+Array [site2fa1] pod contactiing Mediator.
+--------------------------------------------------------------------------------------------------------
+Array [site1fa1] pod [pod1]  Cloud Mediation lost
+Array [site1fa1] pod [pod1] is offline
+Array [site2fa1] pod [pod1]  Cloud Mediation won
+Array [site2fa1] pod [pod1] is synced
+--------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------
+Action: Edge site1replicationswitch1-2_<->_site2replicationswitch1-2 recover
+Array [site1fa1] pod [pod1] is re-syncing
+--------------------------------------------------------------------------------------------------------
+Action: Node test_site recover
+Array [site1fa1] pod [pod1] is synced
+Array [site2fa1] pod [pod1] is no longer elected
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Action: Node site2 recover
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Action: Edge site1replicationswitch2-2_<->_site2replicationswitch2-2 recover
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Action: Edge site1replicationswitch1-2_<->_site2replicationswitch1-2 fail
+VM [podvm1] Avg read latency: 0.5ms Avg write latency: 3.4ms 
+--------------------------------------------------------------------------------------------------------
+Action: Edge site1replicationswitch2-2_<->_site2replicationswitch2-2 fail
+Array [site1fa1] pod [pod1] is paused:No pre-election
+Array [site2fa1] pod [pod1] is paused:No pre-election
+--------------------------------------------------------------------------------------------------------
+Array [site1fa1] pod [pod1] is paused
+Array [site1fa1] pod contactiing Mediator.
+Array [site2fa1] pod [pod1] is paused
+Array [site2fa1] pod contactiing Mediator.
+--------------------------------------------------------------------------------------------------------
+Array [site1fa1] pod [pod1]  Cloud Mediation lost
+Array [site1fa1] pod [pod1] is offline
+Array [site2fa1] pod [pod1]  Cloud Mediation won
+Array [site2fa1] pod [pod1] is synced
+--------------------------------------------------------------------------------------------------------
