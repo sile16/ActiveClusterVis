@@ -113,6 +113,7 @@ class Site extends NetworkGroup {
         this.FCswitch2.createConnection(this.fa.ct0.ports['rep1']);
         this.FCswitch2.createConnection(this.fa.ct1.ports['rep1']);
     }
+
  
     preStep() {
         for (let conn in globalAllConnections) {
@@ -261,7 +262,7 @@ class MultiSite extends NetworkGroup {
             //create cross connect between replication switches
             this.wans.push(this.site1.replicationSwitch1.createSwitchConnection(this.site2.replicationSwitch1, this.wanLatency/2, 10));
             this.wans.push(this.site1.replicationSwitch2.createSwitchConnection(this.site2.replicationSwitch2, this.wanLatency/2, 10));
-            pod.addArray(site2.fa);
+            this.pod.addArray(this.site2.fa);
             
         }
     }
@@ -272,7 +273,7 @@ class MultiSite extends NetworkGroup {
             this.replication_added = true;
             this.site1.addFCReplication();
             this.site2.addFCReplication();
-            pod.addArray(site2.fa);
+            this.pod.addArray(this.site2.fa);
         }
 
         if (!this.fc_wan) {
