@@ -69,7 +69,7 @@
 <body>
 
     <h1>Active Cluster Simulator</h1>
-    <p><a href="https://github.com/sile16/ActiveClusterVis">Documentation</a>, report issues <a href="https://github.com/sile16/ActiveClusterVis/issues">here</a></p>
+    <p><a href="https://github.com/sile16/ActiveClusterVis">Documentation</a>, report issues <a href="https://github.com/sile16/ActiveClusterVis/issues">here</a>. Reload Page to start over.</p>
     <label for="wanlatency">WAN Latency RTT (ms):</label>
     <input oninput="site.setWANLatency(this.value)" type="text" id="wanlatency" name="wanlatency" value="3">
 
@@ -179,9 +179,7 @@
         //do 1 step to initialize the site
         step();
         step();
-        step();
-        step();
-        step();
+
         
         //log("site initialized");
         //updateOutput("Site Initialized");

@@ -100,7 +100,7 @@ function getBallPosition(edge, torig, offset = 0, reverse = false ) {
     const sourcePos = edge.source().position();
     const targetPos = edge.target().position();
 
-    const ballRadius = 3;
+    const ballRadius = 3; //this is supposed to be radius, but raidus is 10 and it overcorrects, 3 is perfect. not sure why ...
     let newPos = null;
 
     let edgeType = edge._private.rscratch.edgeType;

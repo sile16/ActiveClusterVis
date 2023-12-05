@@ -132,7 +132,7 @@ class Mediator extends NetworkDevice {
             else {
                 //since there is not a failover preference we don't have to wait, pick a winner.
                 medState.decision = medState.heardFrom[0];
-                log("Mediator: Pod [" + medState.name + "] array ["+medState.decision+"] won by only response [" + medState.failoverPreference + "]")
+                log("Mediator: Pod [" + medState.name + "] array ["+medState.decision+"] won by only response, failoverPreference =  [" + medState.failoverPreference + "]")
             }
         }
     }
@@ -261,9 +261,15 @@ class ActiveClusterPod extends NetworkDevice {
 
     isFowarding(faControllerObj) {
         let array = faControllerObj.fa;
-        let otherArray = this.getOtherArray(array.name);
 
-        if (this.array_states[array.name].state === "synced" && this.array_states[otherArray.name].state === "synced") {
+
+        if (Object.keys(this.array_states).length === 1) {
+            return false;
+        }
+        
+        let otherArray = this.getOtherArray(array.name);
+        
+        if (otherArray && this.array_states[array.name].state === "synced" && this.array_states[otherArray.name].state === "synced") {
             if (this.array_states[array.name].fa_connected && this.array_states[otherArray.name].fa_connected) {
                 //shouldn't have to check this but... Let check and log if it happens
                 return true;
@@ -616,6 +622,13 @@ class ActiveClusterPod extends NetworkDevice {
                     break;
                 case "paused":
                     // Paused, we might be in sync but not sure, we need to check with mediator or be pre-elected.
+                    
+                    //if we are the only array in the pod move to sync
+                    if (Object.keys(this.array_states).length === 1) {
+                        this.setStateSynced(arrayName);
+                        log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state +": Only array in pod");
+                        break;
+                    }
 
 
                     // if we are elected go to synced

@@ -198,14 +198,14 @@ class FlashArrayController extends NetworkDevice {
     let podName = volume.split("::")[0];
     //check that podName is on this array:
     if (!(podName in this.fa.pods)) {
-        log("Pod not on this array");
+        //log("Pod not on this array");
         return false;
     }
 
     let podObj = this.fa.pods[podName];
     //check if volume is in pod:
     if (!podObj.containsVolume(volume)) {
-        log("Volume not in pod");
+        //log("Volume not in pod");
         return false;
     }
 
@@ -213,12 +213,17 @@ class FlashArrayController extends NetworkDevice {
   }
 
   isVolumeAvailable(volume) {
-    let pod = this.getPodByVolume(volume);
-    if (pod) {
-      return pod.isVolumeAvailable(volume, this.fa.name);
-    }
+    if (volume.includes("::")) {
+    
+      let pod = this.getPodByVolume(volume);
+      if (pod) {
+        return pod.isVolumeAvailable(volume, this.fa.name);
+      }
+      return false;
+     } else {
     // if at least either controller is primary, then the volume is available
-    return this.fa.ct0.state === "primary" || this.fa.ct1.state === "primary";
+     return this.fa.ct0.state === "primary" || this.fa.ct1.state === "primary";
+    }
   }
 
   checkHostVolumeAccess(host, volume){

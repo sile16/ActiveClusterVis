@@ -167,7 +167,7 @@ class MultiSite extends NetworkGroup {
         let pod = new ActiveClusterPod("pod1", site3.mediator, site3.mediator.ports[0]);
         pod.addVolume("pod1::podDS1");
         pod.addArray(site1.fa);
-        pod.addArray(site2.fa);
+       
         this.pod = pod;
 
         //create pod group
@@ -251,8 +251,8 @@ class MultiSite extends NetworkGroup {
     }
 
     addRepCrossover(){
-        if (!this.ethRepAdded) {
-            this.ethRepAdded = true;
+        if (!this.replication_added) {
+            this.replication_added = true;
             this.site1.addReplicationSwitchConnections();
             this.site2.addReplicationSwitchConnections();
             this.site1.addRepCrossover();
@@ -261,15 +261,18 @@ class MultiSite extends NetworkGroup {
             //create cross connect between replication switches
             this.wans.push(this.site1.replicationSwitch1.createSwitchConnection(this.site2.replicationSwitch1, this.wanLatency/2, 10));
             this.wans.push(this.site1.replicationSwitch2.createSwitchConnection(this.site2.replicationSwitch2, this.wanLatency/2, 10));
+            pod.addArray(site2.fa);
+            
         }
     }
 
     addFCReplication() {
         
-        if (!this.fc_wan_conn) {
+        if (!this.replication_added) {
+            this.replication_added = true;
             this.site1.addFCReplication();
             this.site2.addFCReplication();
-            this.fc_wan_conn = true;
+            pod.addArray(site2.fa);
         }
 
         if (!this.fc_wan) {
