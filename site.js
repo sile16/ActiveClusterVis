@@ -71,8 +71,7 @@ class Site extends NetworkGroup {
         mgmtswitch1.createConnection(fa.ct1.ports['mgmt0']);
         mgmtswitch2.createConnection(fa.ct1.ports['mgmt1']);
 
-
-        //add replication switches:
+        //eth replication switches
         let replicationSwitch1 = new Switch(name+"replicationswitch1");
         let replicationSwitch2 = new Switch(name+"replicationswitch2");
         this.replicationSwitch1 = replicationSwitch1;
@@ -81,18 +80,18 @@ class Site extends NetworkGroup {
         replicationGroup.addChildren([replicationSwitch1, replicationSwitch2]);
         this.addChild(replicationGroup);
         
-
-        //add connections to rep0 & rep1
-        replicationSwitch1.createConnection(fa.ct0.ports['rep0']);
-        replicationSwitch2.createConnection(fa.ct0.ports['rep1']);
-        replicationSwitch1.createConnection(fa.ct1.ports['rep0']);
-        replicationSwitch2.createConnection(fa.ct1.ports['rep1']);
-
-
-        
-
-        
     }
+
+    addReplicationSwitchConnections() {
+        //add replication switches:
+        let name = this.name;
+        //add connections to rep0 & rep1
+        this.replicationSwitch1.createConnection(this.fa.ct0.ports['rep0']);
+        this.replicationSwitch2.createConnection(this.fa.ct0.ports['rep1']);
+        this.replicationSwitch1.createConnection(this.fa.ct1.ports['rep0']);
+        this.replicationSwitch2.createConnection(this.fa.ct1.ports['rep1']);
+    }
+
 
     jsonStatus() {
         let status = {};
@@ -104,6 +103,15 @@ class Site extends NetworkGroup {
     addRepCrossover() {
         //replication switches also have a local crossover connection
         this.replicationSwitch1.createSwitchConnection(this.replicationSwitch2);
+    }
+
+    addFCReplication() {
+        let name = this.name;
+
+        this.FCswitch1.createConnection(this.fa.ct0.ports['rep0']);
+        this.FCswitch1.createConnection(this.fa.ct1.ports['rep0']);
+        this.FCswitch2.createConnection(this.fa.ct0.ports['rep1']);
+        this.FCswitch2.createConnection(this.fa.ct1.ports['rep1']);
     }
  
     preStep() {
@@ -118,15 +126,12 @@ class Site extends NetworkGroup {
 class CloudSite extends NetworkGroup {
     constructor(name) {
         super(name);
-
-
         this.mediator = new Mediator();
         //create a cloud switch
         this.cloudSwitch = new Switch("cloudSwitch");
 
         //create a connection between the mediator and the cloud switch
         this.cloudSwitch.createConnection(this.mediator.ports[0]);
-
 
         this.addChild(this.mediator);
         this.addChild(this.cloudSwitch);
@@ -156,9 +161,7 @@ class MultiSite extends NetworkGroup {
         site3.cloudSwitch.createSwitchConnection(site2.mgmtswitch1);
         site3.cloudSwitch.createSwitchConnection(site2.mgmtswitch2);
 
-        //create cross connect between replication switches
-        this.wans.push(site1.replicationSwitch1.createSwitchConnection(site2.replicationSwitch1, this.wanLatency/2, 10));
-        this.wans.push(site1.replicationSwitch2.createSwitchConnection(site2.replicationSwitch2, this.wanLatency/2, 10));
+        
 
         //create pod
         let pod = new ActiveClusterPod("pod1", site3.mediator, site3.mediator.ports[0]);
@@ -179,7 +182,7 @@ class MultiSite extends NetworkGroup {
         
     
         // Create Powered Off VM's Group
-        let poweredOffVMsGroup = new NetworkGroup("Powered Off VMs");
+        let poweredOffVMsGroup = new NetworkGroup("powered_off_vms");
         this.VM = new VM("podvm1", [site1.vmhost, site2.vmhost], "pod1::podDS1", poweredOffVMsGroup);
         this.VM.handleAction("power_on");
         this.vms = [this.VM];
@@ -248,8 +251,33 @@ class MultiSite extends NetworkGroup {
     }
 
     addRepCrossover(){
-        this.site1.addRepCrossover();
-        this.site2.addRepCrossover();
+        if (!this.ethRepAdded) {
+            this.ethRepAdded = true;
+            this.site1.addReplicationSwitchConnections();
+            this.site2.addReplicationSwitchConnections();
+            this.site1.addRepCrossover();
+            this.site2.addRepCrossover();
+
+            //create cross connect between replication switches
+            this.wans.push(this.site1.replicationSwitch1.createSwitchConnection(this.site2.replicationSwitch1, this.wanLatency/2, 10));
+            this.wans.push(this.site1.replicationSwitch2.createSwitchConnection(this.site2.replicationSwitch2, this.wanLatency/2, 10));
+        }
+    }
+
+    addFCReplication() {
+        
+        if (!this.fc_wan_conn) {
+            this.site1.addFCReplication();
+            this.site2.addFCReplication();
+            this.fc_wan_conn = true;
+        }
+
+        if (!this.fc_wan) {
+            this.wans.push(this.site1.FCswitch1.createSwitchConnection(this.site2.FCswitch1, this.wanLatency/2));
+            this.wans.push(this.site1.FCswitch2.createSwitchConnection(this.site2.FCswitch2, this.wanLatency/2));
+            this.fc_wan = true;
+        }
+
     }
 
     addFCCrossover() {
@@ -257,8 +285,11 @@ class MultiSite extends NetworkGroup {
             return;
         }
 
-        this.wans.push(this.site1.FCswitch1.createSwitchConnection(this.site2.FCswitch1, this.wanLatency/2));
-        this.wans.push(this.site1.FCswitch2.createSwitchConnection(this.site2.FCswitch2, this.wanLatency/2));
+        if (!this.fc_wan) {
+            this.wans.push(this.site1.FCswitch1.createSwitchConnection(this.site2.FCswitch1, this.wanLatency/2));
+            this.wans.push(this.site1.FCswitch2.createSwitchConnection(this.site2.FCswitch2, this.wanLatency/2));
+            this.fc_wan = true;
+        }
 
         //we need host entries for these:
         this.hostEntry2 = new HostEntry(this.site1.fa, this.site2.vmhost.name);

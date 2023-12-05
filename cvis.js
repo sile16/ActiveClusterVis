@@ -20,30 +20,237 @@ function getStateColor(state) {
     }
 }
 
+function getBezierData(edge) {
+    // Replace with the actual path to the Bezier data in the internal structure
+    const edgeType = edge._private.rscratch.edgeType; // "straight" or "bezier"
+    if (edgeType === 'bezier') {
+        const bezierData = edge._private.rscratch.ctrlpts;
 
-
-
-function pulseEdge(edgeId) {
-    const edge = cy.$id(edgeId);
-    let growing = true;
-    const max_width = 6;
-    const min_width = 2;
-    edge.style('width', min_width);  // this makes all the lines grow and shrink in the same pattern.
-    
-    function animate() {
-        const width = growing ? max_width : min_width;
+        return [{
+            x: bezierData[0], // Example, adjust based on actual structure
+            y: bezierData[1]  // Example, adjust for quadratic/cubic curves
+        }];
         
-        edge.animate({
-            style: { 'width': width },
-            duration: 300,
-            easing: 'ease-in-out',
-            complete: animate  // callback for continuous animation
-        });
-        growing = !growing;
+    }
+    return null;
+}
+
+function getBezierPosition(t, p0, p1, p2, p3) {
+    const cx = 3 * (p1.x - p0.x);
+    const bx = 3 * (p2.x - p1.x) - cx;
+    const ax = p3.x - p0.x - cx - bx;
+
+    const cy = 3 * (p1.y - p0.y);
+    const by = 3 * (p2.y - p1.y) - cy;
+    const ay = p3.y - p0.y - cy - by;
+
+    const x = ax * Math.pow(t, 3) + bx * Math.pow(t, 2) + cx * t + p0.x;
+    const y = ay * Math.pow(t, 3) + by * Math.pow(t, 2) + cy * t + p0.y;
+
+    return { x, y };
+}
+
+function getQuadraticBezierPosition(t, p0, cp, p2) {
+    const x = (1 - t) * (1 - t) * p0.x + 2 * (1 - t) * t * cp.x + t * t * p2.x;
+    const y = (1 - t) * (1 - t) * p0.y + 2 * (1 - t) * t * cp.y + t * t * p2.y;
+    return { x, y };
+}
+
+function getBezierDerivative(t, p0, cp, p2) {
+    return {
+        x: 2 * (1 - t) * (cp.x - p0.x) + 2 * t * (p2.x - cp.x),
+        y: 2 * (1 - t) * (cp.y - p0.y) + 2 * t * (p2.y - cp.y)
+    };
+}
+
+function getControlPointRelativePosition(start, control, end) {
+    const v1 = { x: control.x - start.x, y: control.y - start.y };
+    const v2 = { x: end.x - start.x, y: end.y - start.y };
+
+    // Cross product in 2D
+    return v1.x * v2.y - v1.y * v2.x;
+}
+
+
+function getNormalVector(derivative) {
+    const length = Math.sqrt(derivative.x * derivative.x + derivative.y * derivative.y);
+    return { 
+        x: derivative.y / length, 
+        y: -derivative.x / length 
+    };
+}
+
+
+let currentBalls = [];
+
+function clearBalls() {
+    //currentBalls.forEach(ball => ball.remove());
+    
+    if(cy){
+        //console.log("Current balls: ", cy.elements('.ball').length);
+        cy.elements('.ball').remove();
+        //console.log("Balls after removal: ", cy.elements('.ball').length);
+    }
+
+    currentBalls = []; // Reset the array after removing the balls
+}
+
+function getBallPosition(edge, torig, offset = 0, reverse = false ) {
+    
+    const sourcePos = edge.source().position();
+    const targetPos = edge.target().position();
+
+    const ballRadius = 3;
+    let newPos = null;
+
+    let edgeType = edge._private.rscratch.edgeType;
+    let ctrlpts = getBezierData(edge);
+
+    let t = null;
+
+    if (reverse) {
+        t = torig - offset;
+    } else {
+        t = torig + offset;
+    }
+
+    if (t > 1) {
+        t = 1 - (t - 1);
+    } else if (t < 0) {
+        t = -t;
     }
     
-    animate();  // start the animation
+
+    if (edgeType === 'bezier') {
+        //newPos = getBezierPosition(t, sourcePos, data.ctrlpts['cp1'], data.ctrlpts['cp2'], targetPos);
+        //newPos = getQuadraticBezierPosition(t, sourcePos, data.ctrlpts[0], targetPos);
+        const bezierPos = getQuadraticBezierPosition(t, sourcePos, ctrlpts[0], targetPos);
+
+        // offset the node by radius along the normal vector
+        const derivative = getBezierDerivative(t, sourcePos, ctrlpts[0], targetPos);
+        const normal = getNormalVector(derivative);
+        const crossProduct = getControlPointRelativePosition(sourcePos, ctrlpts[0], targetPos);
+        let shouldNegate = crossProduct < 0; // Negate if the cross product is negative
+
+        // Adjust normal based on the direction
+        if (shouldNegate) {
+            normal.x = -normal.x;
+            normal.y = -normal.y;
+        }
+
+        newPos = {
+            x: bezierPos.x + normal.x * ballRadius,
+            y: bezierPos.y + normal.y * ballRadius
+        };
+    } else {
+    
+        if (!reverse) {
+            newPos = {
+                x: sourcePos.x + t * (targetPos.x - sourcePos.x),
+                y: sourcePos.y + t * (targetPos.y - sourcePos.y)
+            };
+        } else {
+            newPos = {
+                x: targetPos.x + t * (sourcePos.x - targetPos.x),
+                y: targetPos.y + t * (sourcePos.y - targetPos.y)
+            };
+        }
+    }
+    return newPos;
 }
+
+let ballCounter = 0;
+function createBall(edgeId, color, offset = 0) {
+    const edge = cy.$id(edgeId);
+
+    if (!edge || !edge.source() || !edge.target()) {
+        console.error('Can not create ball, Please check the edge ID and its endpoints.');
+        return;
+    }
+    
+    
+
+    const startPos = getBallPosition(edge, offset, 0, false)
+
+    const ballId = 'ball-' + Date.now() + ballCounter++ ;
+
+    cy.add({
+        group: 'nodes',
+        data: { id: ballId,
+                color: color,
+
+                offset: offset,
+                label: ''
+        },
+        position: startPos,
+        classes: 'ball'
+    });
+
+    let ball = cy.$id(ballId);
+    currentBalls.push(ball);
+    return ball;
+}
+
+function resetBallPositions(balls, edge, reverse) {
+    balls.forEach(ball => {
+        const startPos = reverse ? edge.target().position() : edge.source().position();
+        ball.position(startPos);
+    });
+}
+
+
+
+function animateBalls(edgeId, colors) {
+    let balls = colors.map((color, index) => createBall(edgeId, color, index * 0.25));
+    let reverse = false;
+
+    function animate() {
+        const edge = cy.$id(edgeId);
+        let startTime = Date.now();
+        let duration = 3000;
+
+        function step() {
+            let now = Date.now();
+            let elapsed = now - startTime;
+            let t = Math.min(elapsed / duration, 1);
+
+            balls.forEach(ball => {
+
+                let newPos;
+                let data = ball.data();
+
+                
+                newPos = getBallPosition(edge, t, data.offset, reverse);
+                
+                // Inside your animation step function
+                //let newPos = getBezierPosition(t, sourcePos, controlPoint1, controlPoint2, targetPos);
+
+                ball.position(newPos);
+            });
+
+            if (t < 1) {
+                requestAnimationFrame(step);
+            } else {
+                reverse = !reverse; // Reverse the direction
+                //reset ball positions
+                resetBallPositions(balls, edge, reverse);
+                startTime = Date.now(); // Reset start time
+                step(); // Start next cycle
+
+
+                //balls.forEach(ball => ball.remove()); // Remove existing balls
+                //balls = colors.map((color, index) => createBall(edgeId, color, index * 0.25)); // Recreate balls for the next cycle
+                //startTime = Date.now(); // Reset start time for the next cycle
+                //step(); // Start next cycle
+            }
+        }
+
+        step();
+    }
+
+    animate();
+}
+
 
 function getConnColor(conn) {
     if (conn.isOnline()) {
@@ -78,9 +285,6 @@ function addElementsRecursively(obj, elements) {
         classes: obj.constructor.name
     };
     allObjects[obj.name] = obj;
-
-    
-
 
     if (obj.constructor.name === 'VM') {
         // If this object is a VM, set its parent to its associated VMHost
@@ -128,7 +332,9 @@ function addElementsRecursively(obj, elements) {
 function updateVisualization(site) {
     const elements = [];
     parentChanges = [];
+    clearBalls();
     addElementsRecursively(site, elements);
+    clearBalls();
     
 
     for (let connectionName in globalAllConnections) {
@@ -142,16 +348,24 @@ function updateVisualization(site) {
             },
             classes: 'connection'
         });
+    }
 
-        if (conn.dataFlowing) {
-            pulseEdge(conn.name);
-        } else {
-            if(cy){
-                cy.$id(conn.name).stop(true);
-                //set edget width to 2px   
-                cy.$id(conn.name).style('width', '2px');
-            }
-        }
+    const legend_data = {
+        'HostIO': 'orange',
+        'Replication': 'blue',
+        'Mediator': 'brown',
+    }
+
+    for (let key in legend_data) {
+        elements.push({
+            data: {
+                id: key,
+                label: key,
+                color: legend_data[key],
+                parent: 'test_site'
+            },
+            classes: 'legend'
+        });
     }
 
     let style = [
@@ -178,6 +392,8 @@ function updateVisualization(site) {
             style: {
                 'line-color': 'data(statusColor)',  // Changed lineColor to statusColor
                 'width': '2px',
+                'curve-style': 'bezier',
+                'control-point-step-size': '60px',
             }
         },
         {
@@ -269,6 +485,30 @@ function updateVisualization(site) {
                 width: '80px',
                 shape: 'rectangle',
             }
+        },
+        {
+            selector: '.ball',
+            style: {
+                'background-color': 'data(color)', // Use a data field for color
+                'width': 20,
+                'height': 20,
+                'shape': 'ellipse',
+                //make it so you can't click on interact with the ball
+                'events': 'no',
+                'z-index': '9999',
+            }
+        },
+        {
+            selector: '.legend',
+            style: {
+                'background-color': 'data(color)', // Use a data field for color
+                'width': 30,
+                'height': 30,
+                'shape': 'ellipse',
+                //make it so you can't click on interact with the ball
+                //'events': 'no',
+                //'z-index': '9999',
+            }
         }
     ];
     
@@ -336,6 +576,42 @@ function updateVisualization(site) {
        cy.json({ elements: elements });
        cy.json({ style: style });
        cy.style().update();
+
+       for (let connectionName in globalAllConnections) {
+        const conn = globalAllConnections[connectionName];
+        
+        if (conn.dataFlowing) {
+            //pulseEdge(conn.name);
+            //todo: get list of colors from the connection
+            
+            colors = [];
+            //loop through all keys in conn.data_types
+            //if key is in conn.data_types, add color to colors
+            for (let key in conn.data_types) {
+                if (key === 'replication') {
+                    colors.push('blue');
+                }
+                else if (key.includes('read')) {
+                    //colors.push('brown');
+                }
+                else if (key.includes('write')) {
+                    colors.push('orange');
+                }
+                else if('mediator' === key) {
+                    colors.push('brown');
+                }
+                else {
+                    colors.push('red');
+                }
+            }
+            
+
+            if (colors.length === 0) {
+                colors.push('red');
+            }
+            animateBalls(conn.name, colors);
+        } 
+       }
     }
 }
 
@@ -449,7 +725,161 @@ function layoutChildrenInGrid(parent) {
 }
 
 
-
-
-
-let savedPositions = {"test_site":{"x":2004.7099632227403,"y":856.5177729010808},"powered_off_vms":{"x":1516.4533849129518,"y":1288.467343021004},"podvm1":{"x":1418.8357725982742,"y":1294.7467460996734},"site1":{"x":1620.3017954223433,"y":769.6900762278281},"site1fa1":{"x":1425.703075038387,"y":804.3117609924608},"site1fa1-ct0":{"x":1325.2624178496962,"y":746.6382591235024},"site1fa1-ct1":{"x":1526.1437322270779,"y":878.9852628614192},"site1_vmware":{"x":1447.359037404193,"y":534.0308552094407},"site1vmhost":{"x":1411.5519748178062,"y":457.47046196849584},"site1fcswitcha":{"x":1363.9858012748384,"y":543.8381928037437},"site1fcswitchb":{"x":1530.2322735335476,"y":632.5912484503855},"site1_mgmtsw":{"x":1519.8387726651665,"y":1107.879496787516},"site1mgmtswitch1":{"x":1391.8845219272166,"y":1112.349303087872},"site1mgmtswitch2":{"x":1647.7930234031164,"y":1120.40969048716},"site1_replicationsw":{"x":1875.3358939134978,"y":806.9823954655474},"site1replicationswitch1":{"x":1876.3411729949905,"y":750.7485584656545},"site1replicationswitch2":{"x":1874.330614832005,"y":880.2162324654403},"site1vm1":{"x":1509.982640329001,"y":1294.7467460996731},"site2":{"x":2379.3949633316074,"y":759.4012284350898},"site2fa1":{"x":2538.399445465353,"y":800.0045642204557},"site2fa1-ct0":{"x":2673.0441734273422,"y":736.7782184127547},"site2fa1-ct1":{"x":2403.7547175033637,"y":880.2309100281566},"site2_vmware":{"x":2594.937957276395,"y":512.5659779438485},"site2vmhost":{"x":2652.1575085957843,"y":436.91979054473467},"site2fcswitcha":{"x":2514.218405957006,"y":525.1605958516717},"site2fcswitchb":{"x":2652.375228846249,"y":610.2121653429622},"site2_mgmtsw":{"x":2445.972161348718,"y":1110.6872736219486},"site2mgmtswitch1":{"x":2298.4688241499043,"y":1120.382666325445},"site2mgmtswitch2":{"x":2593.4754985475315,"y":1117.9918809184524},"site2_replicationsw":{"x":2116.8996459420155,"y":802.2952553932255},"site2replicationswitch1":{"x":2120.1668738166004,"y":749.4751073742274},"site2replicationswitch2":{"x":2113.6324180674305,"y":872.1154034122236},"site2vm1":{"x":1611.0709972276295,"y":1299.1879399423347},"site3":{"x":1993.8674772848008,"y":1278.9132583308874},"cloud_mediator":{"x":1993.8674772848005,"y":1342.6157552574268},"cloudswitch":{"x":1994.6909362547922,"y":1232.2107614043477},"activecluster_posd":{"x":2432.935600117573,"y":1276.5789521471916},"pod1":{"x":2432.935600117573,"y":1285.0789521471916}};
+let savedPositions = {
+    "test_site": {
+        "x": 1476.701876990655,
+        "y": 639.0834079771087
+    },
+    "site1": {
+        "x": 1051.6310592229156,
+        "y": 678.8830921910737
+    },
+    "site1fa1": {
+        "x": 933.9872980297763,
+        "y": 747.8240571376297
+    },
+    "site1fa1-ct0": {
+        "x": 806.8180232913967,
+        "y": 677.7198762172462
+    },
+    "site1fa1-ct1": {
+        "x": 1061.156572768156,
+        "y": 817.9282380580131
+    },
+    "site1_vmware": {
+        "x": 952.7848529647274,
+        "y": 428.38680542549116
+    },
+    "site1vmhost": {
+        "x": 900.9689383623569,
+        "y": 389.8470668885086
+    },
+    "site1fcswitcha": {
+        "x": 1060.9426187346155,
+        "y": 441.9021058655195
+    },
+    "site1fcswitchb": {
+        "x": 845.1270871948394,
+        "y": 503.92654396247366
+    },
+    "site1_mgmtsw": {
+        "x": 987.243933521738,
+        "y": 968.2088909556157
+    },
+    "site1mgmtswitch1": {
+        "x": 882.8737570923367,
+        "y": 1021.4191174936389
+    },
+    "site1mgmtswitch2": {
+        "x": 1091.6141099511392,
+        "y": 931.9986644175926
+    },
+    "site1_replicationsw": {
+        "x": 1264.7233285996804,
+        "y": 745.9253706621414
+    },
+    "site1replicationswitch1": {
+        "x": 1265.4440951544345,
+        "y": 690.1197929970579
+    },
+    "site1replicationswitch2": {
+        "x": 1264.002562044926,
+        "y": 818.7309483272248
+    },
+    "site2": {
+        "x": 1870.3697970902408,
+        "y": 683.4076232362688
+    },
+    "site2fa1": {
+        "x": 1997.0044223325099,
+        "y": 746.6614036067643
+    },
+    "site2fa1-ct0": {
+        "x": 2146.5857306899134,
+        "y": 677.2934652299181
+    },
+    "site2fa1-ct1": {
+        "x": 1847.4231139751066,
+        "y": 816.0293419836106
+    },
+    "site2_vmware": {
+        "x": 1950.9600402757303,
+        "y": 431.8555578833177
+    },
+    "site2vmhost": {
+        "x": 1987.339163248204,
+        "y": 386.8686670853169
+    },
+    "site2fcswitcha": {
+        "x": 1799.0873687511903,
+        "y": 438.947225119146
+    },
+    "site2fcswitchb": {
+        "x": 2102.3327118002703,
+        "y": 498.8424486813186
+    },
+    "site2_mgmtsw": {
+        "x": 1892.7851010616005,
+        "y": 966.2998529283375
+    },
+    "site2mgmtswitch1": {
+        "x": 1982.6947785688415,
+        "y": 1018.4465793872207
+    },
+    "site2mgmtswitch2": {
+        "x": 1802.8754235543595,
+        "y": 931.1531264694542
+    },
+    "site2_replicationsw": {
+        "x": 1625.8173146674078,
+        "y": 744.3827738309586
+    },
+    "site2replicationswitch1": {
+        "x": 1625.153863490568,
+        "y": 688.4180825708204
+    },
+    "site2replicationswitch2": {
+        "x": 1626.4807658442476,
+        "y": 817.3474650910969
+    },
+    "site3": {
+        "x": 1444.825933161692,
+        "y": 959.0577234625686
+    },
+    "cloud_mediator": {
+        "x": 1444.825933161692,
+        "y": 1015.2602203891083
+    },
+    "cloudswitch": {
+        "x": 1445.6493921316835,
+        "y": 904.8552265360288
+    },
+    "activecluster_pods": {
+        "x": 1586.4574894416983,
+        "y": 270.2476984605785
+    },
+    "pod1": {
+        "x": 1586.4574894416983,
+        "y": 278.7476984605785
+    },
+    "powered_off_vms": {
+        "x": 1183.8955015244844,
+        "y": 256.8330040959406
+    },
+    "podvm1": {
+        "x": 1183.8955015244844,
+        "y": 256.8330040959406
+    },
+    "HostIO": {
+        "x": 802.9146003173914,
+        "y": 259.05711811035155
+    },
+    "Replication": {
+        "x": 905.5225558574343,
+        "y": 257.10280328614397
+    },
+    "Mediator": {
+        "x": 1000.3306509783943,
+        "y": 258.22098971992443
+    }
+}

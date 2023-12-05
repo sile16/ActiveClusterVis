@@ -352,6 +352,21 @@ class FlashArrayController extends NetworkDevice {
       }
     }
 
+    postStep() {
+      if (this.state === "primary") {
+        //this.fa.pods is a list
+        for (let pod of Object.values(this.fa.pods)) {
+           let states = pod.array_states[this.fa.name];
+           if (states.rep_latency) {
+            //log
+              if (states.rep_latency >= 12) {
+                log("Array [" + this.fa.name + "] pod [" + pod.name + "] WAN latency too high, state:" + states.state);
+              }
+           }
+        }
+      }
+    }
+
     // function for step forward in the state machine
     step() {
       // Soft promote, always check to see if we need to be promoted.
@@ -400,9 +415,10 @@ class FlashArrayController extends NetworkDevice {
             break;
           case "ac_heartbeat_ack":
             //if packet cumm latency is > 11 we error:
+            acmessage.pod.array_states[this.fa.name].rep_latency = packet.cumulativeLatency;
             if ( packet.cumulativeLatency >= 12 ) {
               //log WAN latency too high
-              log("Array ["+ this.name + "] for pod ["+acmessage.pod.name+"] latency too high, must be under 12, observed: " + packet.cumulativeLatency);
+              //acmessage.pod.array_states[this.fa.name].rep_latency = 
               return false;
 
             } else {

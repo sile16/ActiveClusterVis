@@ -159,7 +159,7 @@ class Port extends NetworkDevice {
                 if ( this.packetHandler ) {
                     rc = this.packetHandler(packet, this);
                 } else {
-                    rc =this.device.receivePacketFromPort(packet, this);
+                    rc = this.device.receivePacketFromPort(packet, this);
                 }
                 if (!this.forwarding) {
                     if (rc) {
@@ -167,7 +167,7 @@ class Port extends NetworkDevice {
                         for (let r of packet.route) {
                             let conn = globalAllConnections[r.device];
                             if (conn) {
-                                conn.dataFlowing = true;
+                                conn.add_flowing_data_type(packet.message);
                             }
                         }
                     }
@@ -274,6 +274,7 @@ class Connection extends NetworkDevice {
         this.bandwidthGib = bandwidthGib;
         this.dataFlowing = false;
         globalAllConnections[this.name] = this;
+        this.data_types = {};
     }
 
     receivePacketFromPort(packet, srcPort) {
@@ -294,8 +295,34 @@ class Connection extends NetworkDevice {
         return false;
     }
 
+    add_flowing_data_type(message) {
+        //if starts with AC
+        //console.log(message);
+        this.dataFlowing = true;
+        
+        if (message.includes("mediator")) {
+            this.data_types['mediator'] = 1;
+        }
+        else if (message.includes("mediation")) {
+            this.data_types['mediator'] = 1;
+        }
+        else if (message.includes("ac_")) {
+            this.data_types["replication"] = 1;
+        }
+        else if (message.includes("read") ) {
+            this.data_types['read_io'] = 1;
+        }
+        else if (message.includes("write")) {
+            this.data_types['write_io'] = 1;
+        }
+        else {
+            this.data_types['other'] = 1;
+        }
+    }
+
     clearFlowing() {
         this.dataFlowing = false;
+        this.data_types = {};
     }
     
 }

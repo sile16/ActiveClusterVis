@@ -91,8 +91,17 @@ To run locally you will need to allow java script to load files locally, you can
 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --allow-file-access-from-files
 ```
 
-### Todo
+To export node positions run the following code in developer mode:
+```
+let positions = {};
+cy.nodes().forEach(node => {
+    if (!node.id().includes('ball')) {
+      positions[node.id()] = node.position();
+    }
+});
+console.log(positions);
+```
 
- - check datastore online before booting vm
+### Todo
  - do replication paths through combined FC switches.
  

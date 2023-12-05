@@ -74,11 +74,12 @@
     <input oninput="site.setWANLatency(this.value)" type="text" id="wanlatency" name="wanlatency" value="3">
 
 
-    <button onclick="site.addRepCrossover();step()">Add Replication Switch Crossover</button>
-    <button onclick="site.addFCCrossover();step()">Add Uniform Connections</button>
+    <button onclick="site.addRepCrossover();step()">Add Eth Replication</button>
+    <button onclick="site.addFCReplication();step()">Add FC Replication Connections</button>
+    <button onclick="site.addFCCrossover();step()">Add Uniform Host Entires</button>
     <button onclick="site.setPreferredArray();step()">Set Preferred Array in Host Entry</button>
-    <button onclick="site.setPodFailoverPreference(document.getElementById('podfailover').value);step()">Set Pod Failover Preference</button>
-    <select id="podfailover">
+    <p>Failover Preference:</p>
+    <select id="podfailover" onchange="site.setPodFailoverPreference(this.value); step()">
         <option value="none">None</option>
         <option value="site1fa1">site1fa1</option>
         <option value="site2fa1">site2fa1</option>
@@ -176,6 +177,7 @@
         site = new MultiSite("Test Site", document.getElementById('wanlatency').value);
         updateVisualization(site);  // Add this line
         //do 1 step to initialize the site
+        step();
         step();
         step();
         step();
