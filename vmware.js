@@ -268,6 +268,8 @@ class VMHost extends NetworkDevice {
                     for (let vm of this.vms) {
                         if (vm.datastoreName === datastore.name) {
                             vm.handleAction("restart");
+                            log("VM [" + vm.name + "] restarted");
+
                         }
                     }
 
@@ -276,6 +278,7 @@ class VMHost extends NetworkDevice {
                     for (let vm of this.vms) {
                         if (vm.datastoreName === datastore.name) {
                             vm.handleAction("restart");
+                            log("VM [" + vm.name + "] restarted");
                         }
                     }
                 }
@@ -349,6 +352,17 @@ class VM {
             case "step":
                 this.step();
                 break;
+            case "vmotion_to_other_site":
+                let hosts = this.findAvailableHosts();
+                for (let i = 0; i < hosts.length; i++) {
+                    if (hosts[i] !== this.currentHostObj) {
+                        this.moveVMtoHost(hosts[i]);
+                        log("VM [" + this.name + "] vmotioned to host [" + this.currentHostObj.name + "]");
+                        return;
+                    }
+                }
+                log("VM [" + this.name + "] vmotion failed, no available hosts");
+                break;
         }
     }
 
@@ -392,6 +406,38 @@ class VM {
         this.write_latency = this.round(this.write_latency);
     }
 
+    findAvailableHosts() {
+        //return all hosts that have a datastore with the same name and is online
+        return this.hosts.filter(h => h.datastores.find(d => d.name === this.datastoreName && d.isOnline()));
+    }
+
+    moveVMtoHost(ready_host) {
+        if (!ready_host) {
+            console.error('Host is not defined');
+            return;
+        }
+    
+        this.removeFromVMHost();
+        this.currentHostObj = ready_host;
+    
+        // add this vm the host list if not already there
+        if (this.currentHostObj.vms && !this.currentHostObj.vms.find(v => v.name === this.name)) {
+            this.currentHostObj.vms.push(this);
+        }
+    
+        if (this.currentHostObj.datastores) {
+            this.datastoreObj = this.currentHostObj.datastores.find(d => d.name === this.datastoreName);
+        }
+    
+        if (!this.datastoreObj) {
+            console.error('Datastore not found');
+            return;
+        }
+    
+        this.state = "running";
+        
+    }
+
     step() {
         //clear latencies
         this.read_latency = "unknown";
@@ -402,22 +448,11 @@ class VM {
         switch (this.state) {
             case "booting":
                 //find a host, that has a matching datastore and is online
-                let ready_host = this.hosts.find(h => h.datastores.find(d => d.name === this.datastoreName && d.isOnline()));
-                if (ready_host) {
-                    //send power on
-                    //remove me from the old homst vms
-                    this.removeFromVMHost()                    
-                    this.currentHostObj = ready_host;
-                    
-
-                    //add this vm the host list if not already there
-                    if (!this.currentHostObj.vms.find(v => v.name === this.name)) {
-                        this.currentHostObj.vms.push(this);
-
-                        this.datastoreObj = this.currentHostObj.datastores.find(d => d.name === this.datastoreName);
-                    }
-                    this.state = "running";
-                    //log vm powered on event on which host
+                let ready_hosts = this.findAvailableHosts();
+                 
+                if (ready_hosts.length > 0) {
+                    let ready_host = ready_hosts[0];
+                    this.moveVMtoHost(ready_host);
                     log("VM [" + this.name + "] powered on on host [" + this.currentHostObj.name + "]");
                 }
                 break;

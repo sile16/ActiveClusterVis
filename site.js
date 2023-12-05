@@ -310,4 +310,12 @@ class MultiSite extends NetworkGroup {
             wan.latency = this.wanLatency;
         }
     }
+
+    vMotion(vmname) {
+        //find the vm by name
+        let vm = this.vms.find(v => v.name == vmname);
+        if (vm) {
+            vm.handleAction("vMotion");
+        }
+    }
 }
