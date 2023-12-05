@@ -321,6 +321,9 @@ class FlashArrayController extends NetworkDevice {
       switch (event) {
         case "fail":
           this.state = "failed";
+          if (otherController.state === "secondary") {
+            otherController.state = "primary";
+          }
           break;
         case "recover":
           if  ( this.state !== "primary" ) {
@@ -357,7 +360,10 @@ class FlashArrayController extends NetworkDevice {
       let otherController = this.getOtherController();
       if (this.state === "secondary" && otherController.state !== "primary" ) {
         this.state = "primary";
-        log("FA [" + this.name + "] Self Promoted to primary ");
+        log("FA [" + this.name + "] Self Promoted to primary, Initial Power On ");
+        for (let pod of Object.values(this.fa.pods)) {
+          pod.arrayPowerOn(this.fa.name);
+        }
       }
 
       //Step each AC Pod
@@ -367,14 +373,6 @@ class FlashArrayController extends NetworkDevice {
            pod.acStep(this);
         }
       }
-
-      //if both controllers are offline we need to set the pod state to offline
-      if (this.state === "failed" && otherController.state === "failed") {
-        for (let pod of Object.values(this.fa.pods)) {
-          pod.setArrayNameOffline(this.fa.name);
-        }
-      }
-
     }
   
     receivePacketFromPortRep(packet, srcPort) {
@@ -428,6 +426,8 @@ class FlashArrayController extends NetworkDevice {
         let medRequest = null;
         let states = null;
         if (this.state === "primary") {
+          let podObj = null;
+
           switch (packet.message) {
             case "ac_mediator_heartbeat_ack":
               let acmessage = packet.data;
@@ -437,26 +437,30 @@ class FlashArrayController extends NetworkDevice {
             case "ac_mediation_won_ack":
               medRequest = packet.data;
               states = medRequest.podObj.array_states[this.fa.name];
-              if (medRequest.requestId === states.mediation_request_id
+              podObj = medRequest.podObj;
+              if (medRequest.requestId === states.last_known_mediation_request_id
                 && states.state === "paused") {
-                states.mediator_won = true;
+                //states.mediator_won = true;
                 states.elected = true;
-                states.mediator_response = true;
+                //states.mediator_response = true;
 
-                medRequest.podObj.mediator_request_id += 1;
+                podObj.mediation_request_id += 1;
+                podObj.setStateSynced(this.fa.name);
+                log("Array [" + this.fa.name + "] pod [" + podObj.name + "] Won Mediator, state:" + states.state);
               }
               break;
             
             case "ac_mediation_lost_ack":
               medRequest = packet.data;
               states = medRequest.podObj.array_states[this.fa.name];
-              if (medRequest.requestId === states.mediation_request_id
+              podObj = medRequest.podObj;
+              if (medRequest.requestId === states.last_known_mediation_request_id
                 && states.state === "paused") {
-                states.mediator_response = true;
-                states.mediator_won = false;
+                //states.mediator_response = true;
+                //states.mediator_won = false;
                 states.elected = false;
-
-                medRequest.podObj.mediator_request_id += 1 ;
+                states.state = "offline";
+                log("Array [" + this.fa.name + "] pod [" + podObj.name + "] Lost Mediator, state:" + states.state);
               }
 
               break;
@@ -494,6 +498,10 @@ class FlashArrayController extends NetworkDevice {
         //send message from both source ports to all destination ports
         for (let src_port of src_ports) {
           for (let dst_port of dst_ports) {
+            //if data is type MediationRequest clone it
+            if (data instanceof MediationRequest) {
+              data = data.clone();
+            }
             src_port.sendNewPacket(dst_port, message, data);
           }
         }

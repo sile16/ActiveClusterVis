@@ -6,6 +6,12 @@ function getStateColor(state) {
             return 'red';
         case 'secondary':
             return 'blue';
+        case 'running':
+            return 'green';
+        case 'suspended':
+            return 'yellow';
+        case 'powered_off':
+            return 'grey';
         case 'primary':
         case 'online':
             return 'green';
@@ -22,6 +28,7 @@ function pulseEdge(edgeId) {
     let growing = true;
     const max_width = 6;
     const min_width = 2;
+    edge.style('width', min_width);  // this makes all the lines grow and shrink in the same pattern.
     
     function animate() {
         const width = growing ? max_width : min_width;
@@ -50,8 +57,8 @@ let cy;
 
 const redXSVG = `
   <svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
-    <line x1="0" y1="0" x2="100" y2="100" stroke="red" stroke-width="2"/>
-    <line x1="100" y1="0" x2="0" y2="100" stroke="red" stroke-width="2"/>
+    <line x1="0" y1="0" x2="100" y2="100" stroke="red" stroke-width="7"/>
+    <line x1="100" y1="0" x2="0" y2="100" stroke="red" stroke-width="7"/>
   </svg>
 `;
 
@@ -95,7 +102,7 @@ function addElementsRecursively(obj, elements) {
                 });
             }
         }
-        elementData.data.backgroundImage = "images/vm.jpeg";
+        //elementData.data.backgroundImage = "images/vm.jpeg";
 
     } else if (obj.constructor.name === 'Mediator') {
         elementData.data.backgroundImage = "images/cloud.png";
@@ -234,6 +241,15 @@ function updateVisualization(site) {
                 //'label-color': 'data(textColor)',
             }
         },
+        {
+            selector: '.VM',
+            style: {
+                
+                'shape': 'rectangle',
+                'border-width': '2px',
+                'border-color': 'black',
+            }
+        },
         
         {
             selector: '.VMHost',
@@ -259,7 +275,7 @@ function updateVisualization(site) {
     if (!cy) {
         cy = cytoscape({
            container: document.getElementById('cy'),
-           wheelSensitivity: 0.2, // Adjust this value for your needs
+           //wheelSensitivity: 0.2, // Adjust this value for your needs
            minZoom: 0.5,          // Adjust this value for your needs
            maxZoom: 10,           // Adjust this value for your needs
            elements: elements,

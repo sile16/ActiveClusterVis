@@ -12,7 +12,7 @@ class ACMessage {
 
 class MediationRequest {
     //podName, array1 time since request, array2 time since request,
-    constructor(arrayName, podObj, mediation_request_id, packet) {
+    constructor(arrayName, podObj, mediation_request_id) {
         this.arrayName = arrayName
         this.podObj = podObj
         this.podName = podObj.name;
@@ -21,7 +21,12 @@ class MediationRequest {
         this.requestId = mediation_request_id
         this.timeSinceRequest = 0;
         
-        this.packet = packet;
+        this.packet = null;
+    }
+
+    //clone this object
+    clone() {
+        return new MediationRequest(this.arrayName, this.podObj, this.requestId);
     }
 }
 
@@ -35,7 +40,6 @@ class MediationState {
         this.requestId = requestId;
         this.decision = null;
         this.timeSinceRequest = 0;
-        this.timeSinceRequest = 0;
     }
 }
 
@@ -45,7 +49,7 @@ class Mediator extends NetworkDevice {
         this.activeArray = null;
         this.ports = [new Port('eth0', this)];
         this.decision_delay = 2;  //normal delay for decision
-        this.failoverPreferenceOverride = 5;  
+        this.failoverPreferenceOverride = 4;  
         this.mediation_requests = [];  //dictionary by pod name,
         this.mediation_states = {};
     }
@@ -101,33 +105,34 @@ class Mediator extends NetworkDevice {
             //if failover preference is set, then winner is faill over preference
             if (request.failoverPreference) {
                 medState.decision = request.failoverPreference;
-                log(" [Mediator] Pod [" + medState.name + "] array ["+medState.decision+"] won by failover preference [" + medState.failoverPreference + "]")
+                log("Mediator: Pod [" + medState.name + "] array ["+medState.decision+"] won by failover preference [" + medState.failoverPreference + "]")
                 return;
             } else {
                 //if not set, then winner is picked at random
                 medState.decision = medState.heardFrom[Math.floor(Math.random() * medState.heardFrom.length)];
-                log(" [Mediator] Pod [" + medState.name + "] array ["+medState.decision+"] won by random [" + medState.failoverPreference + "]")
+                log("Mediator: Pod [" + medState.name + "] array ["+medState.decision+"] won by random decision. ")
                 
                 return;
             }
         }
-        else {
+        else if (medState.heardFrom.length === 1) {
             //if not all arrays have reported, and we are over delay pick the winner
             if (medState.failoverPreference) {
                 if(medState.failoverPreference === medState.heardFrom[0]) {
                     //We have winner
                     medState.decision = medState.heardFrom[0];
-                    log(" [Mediator] Pod [" + medState.name + "] array ["+medState.decision+"] won by first & failover preference  [" + medState.failoverPreference + "]")
+                    log("Mediator: Pod [" + medState.name + "] array ["+medState.decision+"] won by first & failover preference  [" + medState.failoverPreference + "]")
                 
                 }
                 else if (medState.timeSinceRequest > this.failoverPreferenceOverride) {
                     medState.decision = medState.heardFrom[0];
-                    log(" [Mediator] Pod [" + medState.name + "] array ["+medState.decision+"] won by only response, overriding failover preference  [" + medState.failoverPreference + "]")
+                    log("Mediator: Pod [" + medState.name + "] array ["+medState.decision+"] won by only response, overriding failover preference  [" + medState.failoverPreference + "]")
                 }
             }
             else {
-                //since there is not a fialover preference we don't have to wait, pick a winner.
+                //since there is not a failover preference we don't have to wait, pick a winner.
                 medState.decision = medState.heardFrom[0];
+                log("Mediator: Pod [" + medState.name + "] array ["+medState.decision+"] won by only response [" + medState.failoverPreference + "]")
             }
         }
     }
@@ -139,31 +144,25 @@ class Mediator extends NetworkDevice {
             
             let medState = this.mediation_states[request.podName];
             
-            if(!medState) {
+            if(!medState || medState.requestId < request.requestId) {
                 medState = new MediationState(request.podName, request.requestId, request.failoverPreference);
                 this.mediation_states[request.podName] = medState;
             }
+
+            //if request id is lower we reject it
+            if(request.requestId < medState.requestId) {
+                this.sendLostResponse(request);
+                continue;
+            } 
 
             //see if we have this array in heardfrom
             if (!medState.heardFrom.includes(request.arrayName)) {
                 medState.heardFrom.push(request.arrayName);
             }
 
-    
-
             request.timeSinceRequest += 1;
             if (medState.timeSinceRequest < request.timeSinceRequest) {
                 medState.timeSinceRequest = request.timeSinceRequest;
-            }
-            
-            //if request id is lower we reject it
-            if(request.requestId < medState.requestId) {
-                this.sendLostResponse(request);
-                continue;
-            } else if (request.requestId > medState.requestId) {
-            //if request id is higher, we reset the state
-                medState = new MediationState(request.podName, request.requestId);
-                this.mediation_states[request.podName] = medState;
             }
             
             //matching lets try and make a decision
@@ -194,6 +193,7 @@ class PodArrayStates {
         this.state_timer_thresholds = {};
         this.state_timer_thresholds["baselining"] = 2;
         this.state_timer_thresholds["pre-elect"] = 2;
+        this.last_known_mediation_request_id = 0;
     }
 
     jsonStatus() {
@@ -205,7 +205,8 @@ class PodArrayStates {
             //"isForwarding": this.parent.isFowarding(this.array),
             "mediator": this.mediator_connected ? "connected" : "unreachable",
             "preElected": this.preElected,
-            "elected": this.elected,
+            "elected": this.elected,  
+            "requestId": this.last_known_mediation_request_id,
         }
     }
 
@@ -252,6 +253,7 @@ class ActiveClusterPod extends NetworkDevice {
             "mediator": this.mediator.name,
             "volumes": this.volumes,
             "failoverPreference": this.failoverPreference ? this.failoverPreference : "none",
+            "requestId": this.mediation_request_id,
             //iterate arrays_state and call object jsonStatus
             //"array_states": Object.keys(this.array_states).map(key => this.array_states[key].jsonStatus()),
         }
@@ -267,7 +269,7 @@ class ActiveClusterPod extends NetworkDevice {
                 return true;
             }
             else {
-                log("Array [" + array.name + "] pod [" + this.name + "] is not forwarding because loss of heartbeat with other array");
+                //log("Array [" + array.name + "] pod [" + this.name + "] is not forwarding because loss of heartbeat with other array");
             }
         }
         return false;
@@ -418,6 +420,14 @@ class ActiveClusterPod extends NetworkDevice {
         this.failoverPreference = null;
     }
 
+    getRequestId() {
+        return this.mediation_request_id;
+    }
+
+    incrementRequestId() {
+        this.mediation_request_id += 1;
+    }
+
     containsVolume(volume) {
         //volume name in form of "<pod>::<volume>"
         return this.volumes.includes(volume);
@@ -436,15 +446,32 @@ class ActiveClusterPod extends NetworkDevice {
         return false;
     }
 
-    setArrayNameOffline(arrayName) {
+    arrayPowerOn(arrayName) {
         //array went offline, if we were in synced, we need to come up as paused.
-        if (this.array_states[arrayName].state === "synced") {
-            this.array_states[arrayName].state = "paused";
-        } else {
-            this.array_states[arrayName].state = "offline";
+        let states = this.array_states[arrayName];
+
+        if ( states.elected ) {
+            //do nothing we are the elected array
+            return;
         }
-        this.array_states[arrayName].mediator_connected = false;
-        this.array_states[arrayName].fa_connected = false;
+
+        switch (states.state){
+            case "synced":
+                // go to paused just to be safe
+                this.array_states[arrayName].state = "paused";
+                //log
+                log("Array [" + arrayName + "] pod [" + this.name + "] is " + this.array_states[arrayName].state + " because of initial power on");
+                break;
+            case "baselining":
+                this.array_states[arrayName].state = "added";
+                break;
+            case "re-syncing":
+                this.array_states[arrayName].state = "offline";
+                break;
+        }
+       
+        states.mediator_connected = false;
+        states.fa_connected = false;
     }
 
 
@@ -453,8 +480,9 @@ class ActiveClusterPod extends NetworkDevice {
         // for each pod, get the primary controller
         //if the pod is not stretched, then we don't need to do anything
         if (!this.isStretched) {
+            this.array_states[faController.fa.name].state = "synced";
             return;
-          }
+        }
     
         let arrayName = faController.fa.name;
         let states = this.array_states[arrayName];
@@ -507,6 +535,9 @@ class ActiveClusterPod extends NetworkDevice {
 
                 case "synced":
                     //check for pre-election
+                    if (states.elected) {
+                        states.elected = false;
+                    }
                     this.preElect(faController);
                 }
             } //end of "synced"
@@ -517,9 +548,12 @@ class ActiveClusterPod extends NetworkDevice {
                     //do nothing
                     break;
                 case "paused":
-                    //other array is offline, so we go to in-sync
+                    //other array is offline (meaning un-recoverable state), so we go to in-sync
+                    states.elected = true;  //not sure we need to set elected, but just in case
+                    //increment the requestid
+                    this.mediation_request_id += 1;
                     this.setStateSynced(arrayName);
-                    log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
+                    log("Array [" + arrayName + "] pod [" + this.name + "] paused -> " + states.state);
                     break;
                 
                 case "offline":
@@ -527,7 +561,7 @@ class ActiveClusterPod extends NetworkDevice {
                     //we can transition to synced
                     if (states.elected) {
                         this.setStateSynced(arrayName);
-                        log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state );
+                        log("Array [" + arrayName + "] pod [" + this.name + "] offline -> " + states.state );
                     }
                 
                 default:
@@ -539,16 +573,27 @@ class ActiveClusterPod extends NetworkDevice {
             else if (otherArrayStates.state === "paused") {
                 switch(states.state) {
                 case "paused":
-                    // both were paused, i'm the first to bring things online, so i'm in sync
-                    pod.array_states[arrayName].state = "synced";
-                    this.mediation_request_id += 1;  //increment so all previous mediation requests are ignored
-                    states.mediation_request_id = this.mediation_request_id; //sync mediation request ids
-                    log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
+
+                    if (this.elected) {
+                        this.setStateSynced(arrayName);
+                        log("Array [" + arrayName + "] pod [" + this.name + "] is from paused to " + states.state);
+                    }
+                    
+                    if (this.mediation_request_id == states.last_known_mediation_request_id) {
+                        //means we are in sync with the POD and we are the first one to see this.
+
+                        this.mediation_request_id += 1;  //increment so all previous mediation requests are ignored
+                        this.setStateSynced(arrayName);  
+                        log("Array [" + arrayName + "] pod [" + this.name + "] is from paused to " + states.state);
+                    }
+                    break;
+                case "synced":
+                    //nothing to do
                     break;
                 
                 default:
                     //not sure how we get here, lets log amessage:
-                    log("Array [" + arrayName + "] is paused, but other array is not paused or synced, so we can't do anything")
+                    log("Array [" + otherArrayStates.name + "] is paused, but other array is not paused or synced, so we can't do anything")
                 }
             }
         } //end of if (pod_state.fa_connected)  
@@ -559,10 +604,10 @@ class ActiveClusterPod extends NetworkDevice {
                     if (!states.elected) {
                         if (states.preElected) {
                             states.elected = true;
-                            log("Array [" + arrayName + "] pod [" + this.name + "] is elected!");
+                            log("Array [" + arrayName + "] pod [" + this.name + "] is elected by pre-election!");
                         } else if (otherArrayStates.preElected) {
                             states.state = "offline";
-                            log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state +":Other array was pre-elected");
+                            log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state +", other array was pre-elected");
                         } else {
                             states.state = "paused";
                             log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state +":No pre-election");
@@ -570,32 +615,27 @@ class ActiveClusterPod extends NetworkDevice {
                     }
                     break;
                 case "paused":
-                    //send mediation request
-                    //check if peer is pre-elected
+                    // Paused, we might be in sync but not sure, we need to check with mediator or be pre-elected.
 
-                    let mediation_request = new MediationRequest(faController.fa.name, this, states.mediation_request_id);
-                    if (!states.mediator_response) {
 
-                        faController.acSendMed(this, "ac_mediation_request", mediation_request);
-                        log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
-                        log("Array [" + arrayName + "] pod contactiing Mediator.");
-                    } else if (states.mediator_won) {
-                        this.setStateSynced(arrayName);
-                        log("Array [" + arrayName + "] pod [" + this.name + "]  Cloud Mediation won");
-                        log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
-                    } else {
-                        states.state = "offline";
-                        log("Array [" + arrayName + "] pod [" + this.name + "]  Cloud Mediation lost");
-                        log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
-                    }
-                    break;
-                case "offline":
-                    //even if we can't reach the other array if we are elected go to sync
+                    // if we are elected go to synced
                     if (states.elected) {
                         this.setStateSynced(arrayName);
                         log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
                     }
-                
+                    else {
+                        let mediation_request = new MediationRequest(faController.fa.name, this, states.last_known_mediation_request_id);
+                        //if (!states.mediator_response) {
+
+                        faController.acSendMed(this, "ac_mediation_request", mediation_request);
+                        log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
+                        log("Array [" + arrayName + "] pod contactiing Mediator.");
+                    }
+
+                    break;
+                case "offline":
+                    //Only way to get out of offline is an array connection, offline means we are out of sync.
+                    break;
             }
         }
         
@@ -652,10 +692,12 @@ class ActiveClusterPod extends NetworkDevice {
         //check if all arrays are in state synced
 
         let states = this.array_states[arrayName];
-        states.mediation_request_id = this.mediation_request_id;
         states.mediator_response = false;
         states.mediator_won = false;
         states.state = "synced";
+        states.last_known_mediation_request_id = this.mediation_request_id;
+        
+
     }
 
     clearElections(faController) {

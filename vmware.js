@@ -428,6 +428,7 @@ class VM {
                 
                 if (!this.datastoreObj || !this.datastoreObj.isOnline()) {
                     this.state = "suspended";
+                    log("VM [" + this.name + "] suspended on host [" + this.currentHostObj.name + "] because datastore [" + this.datastoreName + "] is offline");
                 } else {
                     this.state = "running";
                     this.datastoreObj.readIO(this.name);
