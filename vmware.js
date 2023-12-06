@@ -168,6 +168,8 @@ class VMHost extends NetworkDevice {
         this.vms = [];
         this.datastores = [];
         this.enableAPDPDL = false;
+
+        this.apd_pdl_timout = 6;
     }
 
     jsonStatus(){
@@ -262,7 +264,7 @@ class VMHost extends NetworkDevice {
         if (this.enableAPDPDL) {
             for (let datastore of this.datastores) {
                 datastore.checkAPDPDL();
-                if (datastore.apd === 5) {
+                if (datastore.apd === this.apd_pdl_timout) {
                     log("VM Host [" + this.name + "] APD detected on Datastore [" + datastore.name + "]");
                     //"restart all VMs on this datastore"
                     for (let vm of this.vms) {
@@ -273,7 +275,7 @@ class VMHost extends NetworkDevice {
                         }
                     }
 
-                } else if (datastore.pdl === 5) {
+                } else if (datastore.pdl === this.apd_pdl_timout) {
                     log("VM Host [" + this.name + "] PDL detected on Datastore [" + datastore.name + "]");
                     for (let vm of this.vms) {
                         if (vm.datastoreName === datastore.name) {

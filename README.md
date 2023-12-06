@@ -104,8 +104,19 @@ console.log(positions);
 
 ### Todo
  - build unit tests
- - Tool tip hover for connection names
  - record some videos using the tool
  - multi Pod/VM Senarios.
  - Bad practices examples.
+
+### Test Cases
+ - Pre-election saves you in successive failures
+ - Failover preference working for Pre-election
+ - Failover preference working for mediator
+ - Failover preferenece override when preferred array fails.
+ - Non-Uniform Host failover, shows vm restart and APD/PDL behavior
+ - Uniform failover and latency impact
+ - Non-Uniform, what happends when either by random selection or by failover preference the wrong array is selected.
+ - Primary controller both replication links fail, (does not induce controller failure, and can take pod offline.)
+ - Zombie controllers, split brain everything, then power off, power back on one, win the mediator, then power off, power on other, then either connect to mediator or to other array, everything should come back automatically and the correct array should re-sync with the proper winner.
+ 
  

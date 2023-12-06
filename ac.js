@@ -49,7 +49,7 @@ class Mediator extends NetworkDevice {
         this.activeArray = null;
         this.ports = [new Port('eth0', this)];
         this.decision_delay = 2;  //normal delay for decision
-        this.failoverPreferenceOverride = 4;  
+        this.failoverPreferenceOverride = 3;  
         this.mediation_requests = [];  //dictionary by pod name,
         this.mediation_states = {};
     }
@@ -124,7 +124,7 @@ class Mediator extends NetworkDevice {
                     log("Mediator: Pod [" + medState.name + "] array ["+medState.decision+"] won by first & failover preference  [" + medState.failoverPreference + "]")
                 
                 }
-                else if (medState.timeSinceRequest > this.failoverPreferenceOverride) {
+                else if (medState.timeSinceRequest >= this.failoverPreferenceOverride) {
                     medState.decision = medState.heardFrom[0];
                     log("Mediator: Pod [" + medState.name + "] array ["+medState.decision+"] won by only response, overriding failover preference  [" + medState.failoverPreference + "]")
                 }
