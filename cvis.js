@@ -8,12 +8,14 @@ function getStateColor(state) {
             return 'blue';
         case 'running':
             return 'green';
+        case 'paused':
         case 'suspended':
             return 'yellow';
         case 'powered_off':
             return 'grey';
         case 'primary':
         case 'online':
+        case 'synced':
             return 'green';
         default:
             return 'grey';  // or any other default color
@@ -332,6 +334,8 @@ function addElementsRecursively(obj, elements) {
 function updateVisualization(site) {
     const elements = [];
     parentChanges = [];
+    let tooltip = document.getElementById('tooltip');
+    tooltip.style.display = 'none';
     clearBalls();
     addElementsRecursively(site, elements);
     clearBalls();
@@ -344,7 +348,8 @@ function updateVisualization(site) {
                 id: conn.name,
                 source: conn.ports[0].device.name,
                 target: conn.ports[1].device.name,
-                statusColor: getConnColor(conn)
+                statusColor: getConnColor(conn),
+                dataFlowing: conn.dataFlowing
             },
             classes: 'connection'
         });
@@ -391,7 +396,8 @@ function updateVisualization(site) {
             selector: 'edge',
             style: {
                 'line-color': 'data(statusColor)',  // Changed lineColor to statusColor
-                'width': '2px',
+                //make edge width dependant if dataFlowing is true
+                'width': function(edge) { return edge.data('dataFlowing') ? 5 : 2; },
                 'curve-style': 'bezier',
                 'control-point-step-size': '60px',
             }
@@ -553,12 +559,81 @@ function updateVisualization(site) {
            const eventName = document.getElementById('events').value;
            handleNodeClick(nodeId, eventName);
        });
+
+       cy.on('mouseover', 'node', function(event){
+        let tooltip = document.getElementById('tooltip');
+        let node = event.target;
+        if (node.hasClass('Site') || node.hasClass('MultiSite')) {
+            return;
+        }
+
+        if (event) {
+            let nodeId = event.target.id();
+            let node = allObjects[nodeId];
+            
+            if(node && node.jsonStatus) {
+                tooltip.style.left = event.renderedPosition.x + 'px';
+                tooltip.style.top = event.renderedPosition.y + 'px';
+                 tooltip.style.display = 'block';
+                let tooltipContent = 'Node: ' + node.name + '<br>'
+
+                let jsonInfo = node.jsonStatus();
+                for (let key in jsonInfo) {
+                    tooltipContent += key + ': ' + jsonInfo[key] + '<br>';
+                }
+                tooltip.innerHTML = tooltipContent; // Customize this
+            }
+            
+
+        } else {
+            tooltip.style.display = 'none';
+        }
+       });
+
    
        cy.on('tap', 'edge', function(evt){
            const edgeId = evt.target.id();
            const eventName = document.getElementById('events').value;
            handleEdgeClick(edgeId, eventName);
        });
+
+       cy.on('mouseover', 'edge', function(event) {
+        let tooltip = document.getElementById('tooltip');
+        if (event) {
+            
+            //see if edge id in globalAllConnections
+            //if so, get data_types
+            //loop through data_types and add to tooltip
+            let edgeId = event.target.id();
+            let edge = globalAllConnections[edgeId];
+            
+            if(edge) {
+                tooltip.style.left = event.renderedPosition.x + 'px';
+                tooltip.style.top = event.renderedPosition.y + 'px';
+                tooltip.style.display = 'block';
+            
+                let tooltipContent = 'Connection: ' + event.target.id() + "<br> state:" + edge.state + '<br>';
+                tooltipContent += '<br>Data Types Flowing: <br>';
+                for (let key in edge.data_types) {
+                    tooltipContent += key + '<br>';
+                }
+                tooltip.innerHTML = tooltipContent; // Customize this
+            }
+
+        } else {
+            tooltip.style.display = 'none';
+        }
+        });
+
+       cy.on('mouseout', 'edge', function(event) {
+        let tooltip = document.getElementById('tooltip');
+        tooltip.style.display = 'none';
+       });
+       cy.on('mouseout', 'node', function(event) {
+        let tooltip = document.getElementById('tooltip');
+        tooltip.style.display = 'none';
+       });
+
     } else {
         parentChanges.forEach(change => {
             let childNode = cy.getElementById(change.child);
@@ -614,6 +689,7 @@ function updateVisualization(site) {
        }
     }
 }
+
 
 
 function handleNodeClick(nodeId, eventName) {

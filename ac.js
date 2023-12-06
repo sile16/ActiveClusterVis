@@ -247,9 +247,11 @@ class ActiveClusterPod extends NetworkDevice {
     }
 
     jsonStatus() {
+        this.state = this.getState();
         return {
             "name": this.name,
             "isStretched": this.isStretched(),
+            "state": this.state,
             "mediator": this.mediator.name,
             "volumes": this.volumes,
             "failoverPreference": this.failoverPreference ? this.failoverPreference : "none",
@@ -258,6 +260,23 @@ class ActiveClusterPod extends NetworkDevice {
             //"array_states": Object.keys(this.array_states).map(key => this.array_states[key].jsonStatus()),
         }
     }
+
+    getState() {
+        let all_paused = true;
+        //iterate arrays_state and call object jsonStatus
+        for (let arrayName in this.array_states) {
+            let arrayState = this.array_states[arrayName];
+            if (arrayState.array.isOnline() && arrayState.state === "synced") {
+                return "synced";
+            }
+            if (arrayState.array.isOnline() && arrayState.state !== "paused") {
+                all_paused = false;
+            }
+        }
+        return all_paused ? "paused" : "failed";
+    }
+        
+
 
     isFowarding(faControllerObj) {
         let array = faControllerObj.fa;

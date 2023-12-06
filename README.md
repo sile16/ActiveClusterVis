@@ -103,5 +103,9 @@ console.log(positions);
 ```
 
 ### Todo
- - do replication paths through combined FC switches.
+ - build unit tests
+ - Tool tip hover for connection names
+ - record some videos using the tool
+ - multi Pod/VM Senarios.
+ - Bad practices examples.
  

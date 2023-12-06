@@ -264,6 +264,8 @@ class MultiSite extends NetworkGroup {
             this.wans.push(this.site1.replicationSwitch2.createSwitchConnection(this.site2.replicationSwitch2, this.wanLatency/2, 10));
             this.pod.addArray(this.site2.fa);
             
+        } else {
+            log("replication already added, reload page to restart simulator.")
         }
     }
 
@@ -274,6 +276,8 @@ class MultiSite extends NetworkGroup {
             this.site1.addFCReplication();
             this.site2.addFCReplication();
             this.pod.addArray(this.site2.fa);
+        } else {
+            log("replication already added, reload page to restart simulator.")
         }
 
         if (!this.fc_wan) {
@@ -312,6 +316,7 @@ class MultiSite extends NetworkGroup {
         this.site2.vmhost.targets.push(new Target(this.site1.fa.ct0.name, "fc1"));
         this.site2.vmhost.targets.push(new Target(this.site1.fa.ct1.name, "fc0"));
         this.site2.vmhost.targets.push(new Target(this.site1.fa.ct1.name, "fc1"));
+        log("Host entries created for cross site volume access.")
 
     }
 

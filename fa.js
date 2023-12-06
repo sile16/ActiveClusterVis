@@ -38,8 +38,8 @@ class FlashArray extends NetworkGroup {
   jsonStatus() {
     return {
       name: this.name,
-      state: this.state,
-      isOnline: this.isOnline(),
+      state: this.isOnline() ? "online" : "offline",
+      //isOnline: this.isOnline(),
       //hostEntries: Object.values(this.hostEntries).map(h => h.jsonStatus()),
       CT0: this.ct0.jsonStatus(),
       CT1: this.ct1.jsonStatus(),
@@ -67,7 +67,7 @@ class FlashArray extends NetworkGroup {
   }
 
   isOnline() {
-    return this.ct0.isOnline() || this.ct1.isOnline();
+    return ( this.ct0.state === "primary" || this.ct1.state === "primary");
   }
 }
 
