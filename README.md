@@ -22,10 +22,31 @@ A 'step' represents a progression of a few seconds. The aim is to emulate the se
 
 Given the complexity of network topologies, the simulation encompasses a wide range of components, including virtual switches, WAN links with latency, and packets sent by controllers and VMs for operations like target login and path discovery. These packets traverse the simulated network, with responses generated upon successful receipt.
 
-### Network Links
 
-- **Steady Links**: Represented by solid black lines, indicating connectivity without active data transfer.
-- **Pulsing Lines**: Signify the transit of specific packets, such as read/write IOs, mirrored write acks, and mediation heartbeats. Pulsing indicates at least one successful packet delivery.
+## Buttons
+
+### Add Eth WAN & ETH AC
+This creates the WAN connections and adds the secondary array to the Pod, stretching it across to the other array.  This won't work if you've already added FC AC.
+
+### Add FC WAN Connectsion
+This creates the links between the SAN fabrics from site to site.  This doesn't accomplish anything but is needed for using ActiveCluster, or for doing Unified connectivity but using Eth for Active Cluster.
+
+### Add FC AC
+This sets up the array to array connection and stretched the pod to the other array.
+
+### Add Uniform Host Entries
+This adds the host entries for site1 VMHost to access site2 FlashArray volumes. 
+
+### Set Preferred Array in Host Entry
+This marks the paths over the WAN as non-optimized, it will only use these paths if all optimized paths fail.
+
+### Enable VMWware APD/PDL
+Enables it on both VM Hosts.
+
+## Network Links
+
+- **Grey Links**: Represented by grey lines, indicating connectivity without active data transfer.
+- **Solid Lines**: Signify the transit of specific packets, such as read/write IOs, mirrored write acks, and mediation heartbeats. Colored balls indicate the type of traffic, and you can hover over the link to see more details.
 
 #### Read & Write Latency
 
@@ -79,9 +100,6 @@ For more information, visit the (Pure ActiveCluster with VMWare Guide))[https://
 
 The framework now supports the creation of more complex or specific scenarios, such as improperly configured setups. For
 
-
-
-
 ### Future Simulation
 More complicated or specific examples can easily be created now that all the underlying components are simulated.  Bad setup examples for instance, if site2 requires site1 mgmt switches to talk to the mediator.  You could set that up and show how it fails.
 
@@ -118,5 +136,5 @@ console.log(positions);
  - Non-Uniform, what happends when either by random selection or by failover preference the wrong array is selected.
  - Primary controller both replication links fail, (does not induce controller failure, and can take pod offline.)
  - Zombie controllers, split brain everything, then power off, power back on one, win the mediator, then power off, power on other, then either connect to mediator or to other array, everything should come back automatically and the correct array should re-sync with the proper winner.
- 
+
  

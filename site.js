@@ -251,7 +251,7 @@ class MultiSite extends NetworkGroup {
        
     }
 
-    addRepCrossover(){
+    addEthAC(){
         if (!this.replication_added) {
             this.replication_added = true;
             this.site1.addReplicationSwitchConnections();
@@ -269,26 +269,34 @@ class MultiSite extends NetworkGroup {
         }
     }
 
-    addFCReplication() {
-        
-        if (!this.replication_added) {
-            this.replication_added = true;
-            this.site1.addFCReplication();
-            this.site2.addFCReplication();
-            this.pod.addArray(this.site2.fa);
-        } else {
-            log("replication already added, reload page to restart simulator.")
-        }
-
+    addFCWan() {
         if (!this.fc_wan) {
             this.wans.push(this.site1.FCswitch1.createSwitchConnection(this.site2.FCswitch1, this.wanLatency/2));
             this.wans.push(this.site1.FCswitch2.createSwitchConnection(this.site2.FCswitch2, this.wanLatency/2));
             this.fc_wan = true;
         }
+    }
+
+    addFCReplication() {
+        
+        if (this.fc_wan) {
+            if (!this.replication_added) {
+                this.replication_added = true;
+                this.site1.addFCReplication();
+                this.site2.addFCReplication();
+                this.pod.addArray(this.site2.fa);
+            } else {
+                log("replication already added, reload page to restart simulator.")
+            }
+
+        } else {
+            log("Add FC WAN links first.")
+        }
+
 
     }
 
-    addFCCrossover() {
+    addFCUniformHostEntries() {
         if(this.hostEntry2 ){
             return;
         }

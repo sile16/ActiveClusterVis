@@ -82,20 +82,20 @@
     <input oninput="site.setWANLatency(this.value)" type="text" id="wanlatency" name="wanlatency" value="3">
 
 
-    <button onclick="site.addRepCrossover();step()">Add Eth Replication</button>
-    <button onclick="site.addFCReplication();step()">Add FC Replication Connections</button>
-    <button onclick="site.addFCCrossover();step()">Add Uniform Host Entires</button>
+    <button onclick="site.addEthAC();step()">Add Eth WAN & Eth AC</button>
+    <button onclick="site.addFCWan();step()">Add FC WAN Connections</button>
+    <button onclick="site.addFCReplication();step()">Add FC AC </button>
+    <button onclick="site.addFCUniformHostEntries();step()">Add Uniform Host Entires</button>
     <button onclick="site.setPreferredArray();step()">Set Preferred Array in Host Entry</button>
-    <p>Failover Preference:</p>
+    <button onclick="site.enableAPDPDL()">Enable VMWare APD/PDL</button>
+
+    <p>AC Pod Failover Preference: 
     <select id="podfailover" onchange="site.setPodFailoverPreference(this.value); step()">
         <option value="none">None</option>
         <option value="site1fa1">site1fa1</option>
         <option value="site2fa1">site2fa1</option>
     </select>
-    <button onclick="site.enableAPDPDL()">Enable VMWare APD/PDL</button>
-
-    <br><br>
-    
+    </p>
 
 <label for="events">Mouse Click Event:</label>
 <select id="events">
