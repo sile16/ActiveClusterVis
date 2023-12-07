@@ -30,10 +30,10 @@ class Datastore {
                 return {
                     host: this.host.name,
                     datastore: this.name,
-                    datastore_isOnline: this.isOnline(),
+                    isOnline: this.isOnline(),
                     srcPort: p.srcPort.name,
-                    dst: p.dst,
-                    dstPort: p.dstPort,
+                    dst_array_ct : p.dst,
+                    dst_port: p.dstPort,
                     optimized: p.optimized,
                     ready: p.ready,
                     online: p.online,
