@@ -302,9 +302,7 @@ class MultiSite extends NetworkGroup {
         }
 
         if (!this.fc_wan) {
-            this.wans.push(this.site1.FCswitch1.createSwitchConnection(this.site2.FCswitch1, this.wanLatency/2));
-            this.wans.push(this.site1.FCswitch2.createSwitchConnection(this.site2.FCswitch2, this.wanLatency/2));
-            this.fc_wan = true;
+            log("Host Entries added but FC WAN links are needed to see additional paths.")
         }
 
         //we need host entries for these:
