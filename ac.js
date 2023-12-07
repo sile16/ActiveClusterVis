@@ -201,12 +201,14 @@ class PodArrayStates {
             "pod": this.podName,
             "array": this.array.name,
             "state": this.state,
+            "isWriteable": this.state === "synced" ? "true" : "false",
             "Peer FA": this.fa_connected ? "connected" : "unreachable",
             //"isForwarding": this.parent.isFowarding(this.array),
             "mediator": this.mediator_connected ? "connected" : "unreachable",
             "preElected": this.preElected,
-            "elected": this.elected,  
-            "requestId": this.last_known_mediation_request_id,
+            "elected": this.elected,
+
+            //"requestId": this.last_known_mediation_request_id,
         }
     }
 
@@ -255,10 +257,14 @@ class ActiveClusterPod extends NetworkDevice {
             "mediator": this.mediator.name,
             "volumes": this.volumes,
             "failoverPreference": this.failoverPreference ? this.failoverPreference : "none",
-            "requestId": this.mediation_request_id,
+            //"requestId": this.mediation_request_id,
             //iterate arrays_state and call object jsonStatus
             //"array_states": Object.keys(this.array_states).map(key => this.array_states[key].jsonStatus()),
         }
+    }
+
+    step() {
+        this.state = this.getState();
     }
 
     getState() {

@@ -41,8 +41,8 @@ class FlashArray extends NetworkGroup {
       state: this.isOnline() ? "online" : "offline",
       //isOnline: this.isOnline(),
       //hostEntries: Object.values(this.hostEntries).map(h => h.jsonStatus()),
-      CT0: this.ct0.jsonStatus(),
-      CT1: this.ct1.jsonStatus(),
+      CT0: this.ct0.jsonStatus()['state'],
+      CT1: this.ct1.jsonStatus()['state'],
     };
   }
     
