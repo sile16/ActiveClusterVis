@@ -50,9 +50,14 @@ Enables it on both VM Hosts.
 - **Grey Links**: Represented by grey lines, indicating connectivity without active data transfer.
 - **Solid Lines**: Signify the transit of specific packets, such as read/write IOs, mirrored write acks, and mediation heartbeats. Colored balls indicate the type of traffic, and you can hover over the link to see more details.
 
-#### Read & Write Latency
+### Read & Write Latency
 
 Reported by the VM, the FlashArrays are configured with fixed latencies of 0.2ms for writes and 0.5ms for reads. Local links have zero latency, while WAN links are variable. This setup allows the simulation to exhibit the impact of failures on latency and demonstrate that all reads are serviced locally.
+
+
+### WAN Latency
+
+If latency is over 11ms it creates a warning.  If it's over 50ms for several seconds it disconnects from the peer array, just the same as if the links were lost.  If latency falls below 11ms again it will re-connect.
 
 ### Replication: FC vs. Ethernet
 

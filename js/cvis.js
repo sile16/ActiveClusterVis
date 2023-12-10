@@ -97,44 +97,30 @@ function clearBalls() {
     currentBalls = []; // Reset the array after removing the balls
 }
 
-function getBallPosition(edge, torig, offset = 0, reverse = false ) {
-    
+function getBallPosition(edge, torig, offset = 0, reverse = false) {
     const sourcePos = edge.source().position();
     const targetPos = edge.target().position();
-
-    const ballRadius = 3; //this is supposed to be radius, but raidus is 10 and it overcorrects, 3 is perfect. not sure why ...
+    const ballRadius = 3; // Adjusted radius
     let newPos = null;
 
     let edgeType = edge._private.rscratch.edgeType;
     let ctrlpts = getBezierData(edge);
 
-    let t = null;
+    // Adjust 't' based on 'reverse' and 'offset'
+    let t = reverse ? torig - offset : torig + offset;
 
-    if (reverse) {
-        t = torig - offset;
-    } else {
-        t = torig + offset;
-    }
-
-    if (t > 1) {
-        t = 1 - (t - 1);
-    } else if (t < 0) {
-        t = -t;
-    }
-    
+    // Make 't' oscillate between 0 and 1
+    t = t % 2;
+    if (t < 0) t += 2; // Ensure 't' is positive
+    if (t > 1) t = 2 - t;
 
     if (edgeType === 'bezier') {
-        //newPos = getBezierPosition(t, sourcePos, data.ctrlpts['cp1'], data.ctrlpts['cp2'], targetPos);
-        //newPos = getQuadraticBezierPosition(t, sourcePos, data.ctrlpts[0], targetPos);
         const bezierPos = getQuadraticBezierPosition(t, sourcePos, ctrlpts[0], targetPos);
-
-        // offset the node by radius along the normal vector
         const derivative = getBezierDerivative(t, sourcePos, ctrlpts[0], targetPos);
         const normal = getNormalVector(derivative);
         const crossProduct = getControlPointRelativePosition(sourcePos, ctrlpts[0], targetPos);
-        let shouldNegate = crossProduct < 0; // Negate if the cross product is negative
+        let shouldNegate = crossProduct < 0;
 
-        // Adjust normal based on the direction
         if (shouldNegate) {
             normal.x = -normal.x;
             normal.y = -normal.y;
@@ -145,21 +131,16 @@ function getBallPosition(edge, torig, offset = 0, reverse = false ) {
             y: bezierPos.y + normal.y * ballRadius
         };
     } else {
-    
-        if (!reverse) {
-            newPos = {
-                x: sourcePos.x + t * (targetPos.x - sourcePos.x),
-                y: sourcePos.y + t * (targetPos.y - sourcePos.y)
-            };
-        } else {
-            newPos = {
-                x: targetPos.x + t * (sourcePos.x - targetPos.x),
-                y: targetPos.y + t * (sourcePos.y - targetPos.y)
-            };
-        }
+        // Unified linear interpolation
+        newPos = {
+            x: sourcePos.x + t * (targetPos.x - sourcePos.x),
+            y: sourcePos.y + t * (targetPos.y - sourcePos.y)
+        };
     }
+    
     return newPos;
 }
+
 
 let ballCounter = 0;
 function createBall(edgeId, color, offset = 0) {
@@ -209,12 +190,12 @@ function animateBalls(edgeId, colors) {
     function animate() {
         const edge = cy.$id(edgeId);
         let startTime = Date.now();
-        let duration = 3000;
+        let duration = 2000;
 
         function step() {
             let now = Date.now();
             let elapsed = now - startTime;
-            let t = Math.min(elapsed / duration, 1);
+            let t = elapsed / duration;
 
             balls.forEach(ball => {
 
@@ -229,22 +210,9 @@ function animateBalls(edgeId, colors) {
 
                 ball.position(newPos);
             });
+            
+            requestAnimationFrame(step);
 
-            if (t < 1) {
-                requestAnimationFrame(step);
-            } else {
-                reverse = !reverse; // Reverse the direction
-                //reset ball positions
-                resetBallPositions(balls, edge, reverse);
-                startTime = Date.now(); // Reset start time
-                step(); // Start next cycle
-
-
-                //balls.forEach(ball => ball.remove()); // Remove existing balls
-                //balls = colors.map((color, index) => createBall(edgeId, color, index * 0.25)); // Recreate balls for the next cycle
-                //startTime = Date.now(); // Reset start time for the next cycle
-                //step(); // Start next cycle
-            }
         }
 
         step();

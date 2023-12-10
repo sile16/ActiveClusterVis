@@ -379,8 +379,12 @@ class FlashArrayController extends NetworkDevice {
                 }
               }
               else if (states.rep_latency >= 11) {
-                log("Array [" + this.fa.name + "] pod [" + pod.name + "] Warning high WAN latency, state:" + states.state);
-                states.high_latency_timer = 0;
+                if (states.previous_fa_connected) {
+                  log("Array [" + this.fa.name + "] pod [" + pod.name + "] Warning high WAN latency, state:" + states.state);
+                  states.high_latency_timer = 0;
+                } else {
+                  log("Array [" + this.fa.name + "] pod [" + pod.name + "] WAN latency too high to connect, state:" + states.state);
+                }
               }
               else {
                 states.high_latency_timer = 0;
