@@ -364,8 +364,26 @@ class FlashArrayController extends NetworkDevice {
            let states = pod.array_states[this.fa.name];
            if (states.rep_latency) {
             //log
-              if (states.rep_latency >= 12) {
-                log("Array [" + this.fa.name + "] pod [" + pod.name + "] WAN latency too high, state:" + states.state);
+              if (states.rep_latency >= 50) {
+                //increment high latency timer
+                states.high_latency_timer += 1;
+                if (states.previous_fa_connected) {
+                  if (states.high_latency_timer >= states.rep_latency_threshold) {
+                    log("Array [" + this.fa.name + "] pod [" + pod.name + "] WAN latency too high, for too long, disconnecting.:" + states.state);
+                    states.fa_connected = false;
+                  } else {
+                    log("Array [" + this.fa.name + "] pod [" + pod.name + "] WAN latency too high, could cause AC disconnection, state:" + states.state);
+                  }
+                } else {
+                  log("Array [" + this.fa.name + "] pod [" + pod.name + "] WAN latency too high to connect, state:" + states.state);
+                }
+              }
+              else if (states.rep_latency >= 11) {
+                log("Array [" + this.fa.name + "] pod [" + pod.name + "] Warning high WAN latency, state:" + states.state);
+                states.high_latency_timer = 0;
+              }
+              else {
+                states.high_latency_timer = 0;
               }
            }
         }
@@ -419,18 +437,40 @@ class FlashArrayController extends NetworkDevice {
             return false; //prevents dataFlowing from showing
             break;
           case "ac_heartbeat_ack":
-            //if packet cumm latency is > 11 we error:
+            //this is called a bunch of times for each heartbeat
+            // we are assumming all latency is the same, so we just take the last one.
+            // the simulations don't allow per link latency although that could be possible
+            // HOwever, unclear if we take the min or max, or if in reality it's track per path maybe.
+
+            // the main goal of this is to determine if data is flowing or not, so the visualization can show it.
+            // the actual state processing is done in the postStep() function.
+
             acmessage.pod.array_states[this.fa.name].rep_latency = packet.cumulativeLatency;
-            if ( packet.cumulativeLatency >= 12 ) {
+
+            if ( packet.cumulativeLatency > 50 ) {
               //log WAN latency too high
               //acmessage.pod.array_states[this.fa.name].rep_latency = 
-              return false;
+              if ( acmessage.pod.array_states[this.fa.name].rep_latency_timer < acmessage.pod.array_states[this.fa.name].rep_latency_threshold &&
+                   acmessage.pod.array_states[this.fa.name].previous_fa_connected ) {
+                
+                acmessage.pod.array_states[this.fa.name].fa_connected = true;
+                return true;
+              }
+              return false;  //prevents data flowing for replication link.
 
+            } else if ( packet.cumulativeLatency > 11 ) {
+              if ( acmessage.pod.array_states[this.fa.name].previous_fa_connected ) {
+                acmessage.pod.array_states[this.fa.name].fa_connected = true;
+                return true;
+              }
+              return false;
+              
             } else {
               acmessage.pod.array_states[this.fa.name].fa_connected = true;
+              acmessage.pod.array_states[this.fa.name].rep_latency_timer = 0; 
               return true;
             }
-            return false;//prevents dataFlowing
+
             
             break;
           default:

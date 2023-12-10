@@ -191,9 +191,13 @@ class PodArrayStates {
         this.elected = false;
         this.state_timers = {};
         this.state_timer_thresholds = {};
-        this.state_timer_thresholds["baselining"] = 2;
+        this.state_timer_thresholds["baselining"] = 1;
         this.state_timer_thresholds["pre-elect"] = 2;
         this.last_known_mediation_request_id = 0;
+        this.rep_latency = 0;
+        this.rep_latency_threshold = 2;
+        this.rep_latency_timer = 0;
+        this.previous_fa_connected = false;
     }
 
     jsonStatus() {
@@ -207,6 +211,7 @@ class PodArrayStates {
             "mediator": this.mediator_connected ? "connected" : "unreachable",
             "preElected": this.preElected,
             "elected": this.elected,
+            "latency": this.rep_latency,
 
             //"requestId": this.last_known_mediation_request_id,
         }
@@ -520,6 +525,7 @@ class ActiveClusterPod extends NetworkDevice {
   
         //check for heartbeats
         let acmessage = new ACMessage(this);
+        states.previous_fa_connected = states.fa_connected;
         states.fa_connected = false;
         states.mediator_connected = false;
         faController.acSendData(this, "ac_heartbeat", acmessage);

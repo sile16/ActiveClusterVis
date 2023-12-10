@@ -5,12 +5,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>State Machine Interface</title>
-<script src="network.js"></script>
-<script src="fa.js"></script>
-<script src="site.js"></script>
-<script src="vmware.js"></script>
-<script src="ac.js"></script>
-<script src="cvis.js"></script>
+<script src="js/network.js"></script>
+<script src="js/fa.js"></script>
+<script src="js/site.js"></script>
+<script src="js/vmware.js"></script>
+<script src="js/ac.js"></script>
+<script src="js/cvis.js"></script>
 <script src="https://unpkg.com/cytoscape@3.17.2/dist/cytoscape.min.js"></script>
 
 <style>
@@ -118,13 +118,13 @@
     <label for="wanlatency">WAN Latency RTT (ms):</label>
     <input oninput="site.setWANLatency(this.value)" type="text" id="wanlatency" name="wanlatency" value="3">
 
-
-    <button onclick="site.addEthAC();step()">Add Eth WAN & Eth AC</button>
-    <button onclick="site.addFCWan();step()">Add FC WAN Connections</button>
-    <button onclick="site.addFCReplication();step()">Add FC AC </button>
-    <button onclick="site.addFCUniformHostEntries();step()">Add Uniform Host Entires</button>
+    <!-- disable buttons after clicking -->
+    <button onclick="site.addEthAC();step();this.disabled=true;">Add Eth WAN Cables & Eth Replication</button>
+    <button onclick="site.addFCWan();step();this.disabled=true;">Add FC WAN Cables</button>
+    <button onclick="site.addFCReplication();step();">Add FC Replication </button>
+    <button onclick="site.addFCUniformHostEntries();step();">Add Uniform Host Entires</button>
     <button onclick="site.setPreferredArray();step()">Set Preferred Array in Host Entry</button>
-    <button onclick="site.enableAPDPDL()">Enable VMWare APD/PDL</button>
+    <button onclick="site.enableAPDPDL();">Enable VMWare APD/PDL</button>
 
     <p>AC Pod Failover Preference: 
     <select id="podfailover" onchange="site.setPodFailoverPreference(this.value); step()">

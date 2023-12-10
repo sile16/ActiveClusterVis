@@ -169,7 +169,7 @@ class VMHost extends NetworkDevice {
         this.datastores = [];
         this.enableAPDPDL = false;
 
-        this.apd_pdl_timout = 6;
+        this.apd_pdl_timout = 5;
     }
 
     jsonStatus(){
