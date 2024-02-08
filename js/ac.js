@@ -673,7 +673,7 @@ class ActiveClusterPod extends NetworkDevice {
 
                         faController.acSendMed(this, "ac_mediation_request", mediation_request);
                         log("Array [" + arrayName + "] pod [" + this.name + "] is " + states.state);
-                        log("Array [" + arrayName + "] pod contactiing Mediator.");
+                        log("Array [" + arrayName + "] pod contacting Mediator.");
                     }
 
                     break;

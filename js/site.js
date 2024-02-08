@@ -68,8 +68,8 @@ class Site extends NetworkGroup {
 
         mgmtswitch1.createConnection(fa.ct0.ports['mgmt0']);
         mgmtswitch2.createConnection(fa.ct0.ports['mgmt1']);
-        mgmtswitch1.createConnection(fa.ct1.ports['mgmt0']);
-        mgmtswitch2.createConnection(fa.ct1.ports['mgmt1']);
+        mgmtswitch1.createConnection(fa.ct1.ports['mgmt1']);
+        mgmtswitch2.createConnection(fa.ct1.ports['mgmt0']);
 
         //eth replication switches
         let replicationSwitch1 = new Switch(name+"replicationswitch1");
